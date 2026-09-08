@@ -49,6 +49,7 @@ model Receipt {
   submittedAt    DateTime      @default(now())
   reviewedAt     DateTime?
   reviewedBy     String?
+  rejectionReason String?
 
   user    User     @relation(fields: [userId], references: [id])
   voucher Voucher?

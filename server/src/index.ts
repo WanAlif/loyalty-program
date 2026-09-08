@@ -3,6 +3,9 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes';
+import receiptRoutes from './routes/receiptRoutes';
+import adminRoutes from './routes/adminRoutes';
+import voucherRoutes from './routes/voucherRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,7 +22,9 @@ app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
 app.use('/api/auth', authRoutes);
-// Next phases will add: /api/receipts, /api/vouchers, /api/admin
+app.use('/api/receipts', receiptRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/vouchers', voucherRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
