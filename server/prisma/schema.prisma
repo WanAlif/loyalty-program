@@ -1,0 +1,76 @@
+// Prisma schema for the Loyalty Program app
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ReceiptStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?  @unique
+  phone     String?  @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  receipts Receipt[]
+  vouchers Voucher[]
+
+  // At least one of email or phone must be present.
+  // Enforced at the application layer (Prisma can't express OR-required at schema level).
+  @@map("users")
+}
+
+model Receipt {
+  id             String        @id @default(uuid())
+  userId         String
+  orderId        String
+  purchaseDate   DateTime
+  amount         Decimal       @db.Decimal(10, 2)
+  fileUrl        String
+  status         ReceiptStatus @default(PENDING)
+  submittedAt    DateTime      @default(now())
+  reviewedAt     DateTime?
+  reviewedBy     String?
+
+  user    User     @relation(fields: [userId], references: [id])
+  voucher Voucher?
+
+  @@index([userId])
+  @@index([status])
+  @@map("receipts")
+}
+
+model Voucher {
+  id         String   @id @default(uuid())
+  userId     String
+  receiptId  String   @unique // enforces exactly one voucher per receipt at the DB level
+  code       String   @unique
+  amount     Decimal  @db.Decimal(10, 2)
+  issuedAt   DateTime @default(now())
+  expiresAt  DateTime?
+  redeemedAt DateTime?
+
+  user    User    @relation(fields: [userId], references: [id])
+  receipt Receipt @relation(fields: [receiptId], references: [id])
+
+  @@index([userId])
+  @@map("vouchers")
+}
