@@ -62,8 +62,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Run tests (if any are present)
-        run: npm test --if-present
+      - name: Run tests
+        # Bypasses the local npm "test" script's dotenv-cli step (which
+        # loads server/.env.test — a local-only, gitignored file) since
+        # this job already provides the equivalent env vars above.
+        run: npx jest --runInBand
 
   client:
     name: Client (build, typecheck)
