@@ -6,8 +6,10 @@ interface AuthContextValue {
   loading: boolean;
   sessionMessage: string | null;
   clearSessionMessage: () => void;
-  login: (identifier: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<User>;
+  adminLogin: (identifier: string, password: string) => Promise<User>;
   register: (data: { name: string; email?: string; phone?: string; password: string }) => Promise<void>;
+  updateProfile: (data: { name: string; email?: string; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -50,12 +52,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.post('/auth/login', { identifier, password });
     setUser(res.data.user);
     setSessionMessage(null);
+    return res.data.user as User;
+  }
+
+  async function adminLogin(identifier: string, password: string) {
+    const res = await api.post('/auth/admin-login', { identifier, password });
+    setUser(res.data.user);
+    setSessionMessage(null);
+    return res.data.user as User;
   }
 
   async function register(data: { name: string; email?: string; phone?: string; password: string }) {
     const res = await api.post('/auth/register', data);
     setUser(res.data.user);
     setSessionMessage(null);
+  }
+
+  async function updateProfile(data: { name: string; email?: string; phone?: string }) {
+    const res = await api.patch('/auth/me', data);
+    setUser(res.data.user);
   }
 
   async function logout() {
@@ -69,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, sessionMessage, clearSessionMessage, login, register, logout }}
+      value={{ user, loading, sessionMessage, clearSessionMessage, login, adminLogin, register, updateProfile, logout }}
     >
       {children}
     </AuthContext.Provider>

@@ -30,8 +30,8 @@ COPY package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
-COPY entrypoint.sh ./entrypoint.sh
-RUN chmod +x entrypoint.sh && mkdir -p uploads
+RUN mkdir -p uploads
 
 EXPOSE 5000
-ENTRYPOINT ["./entrypoint.sh"]
+# Applies any pending Prisma migrations before the server starts
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

@@ -30,3 +30,13 @@ export async function loginAndGetCookie(app: Express, identifier: string, passwo
   }
   return cookie;
 }
+
+// Same as loginAndGetCookie, but for the admin-only login endpoint.
+export async function loginAdminAndGetCookie(app: Express, identifier: string, password = TEST_PASSWORD) {
+  const res = await request(app).post('/api/auth/admin-login').send({ identifier, password });
+  const cookie = res.headers['set-cookie'];
+  if (!cookie) {
+    throw new Error(`Admin login failed in test setup: ${JSON.stringify(res.body)}`);
+  }
+  return cookie;
+}

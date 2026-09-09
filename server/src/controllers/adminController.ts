@@ -5,24 +5,60 @@ import { generateVoucherCode, calculateVoucherAmount, calculateExpiryDate } from
 
 const listQuerySchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(5),
 });
+
+export async function getStats(_req: Request, res: Response) {
+  const [pending, approved, rejected, vouchersIssued] = await Promise.all([
+    prisma.receipt.count({ where: { status: 'PENDING' } }),
+    prisma.receipt.count({ where: { status: 'APPROVED' } }),
+    prisma.receipt.count({ where: { status: 'REJECTED' } }),
+    prisma.voucher.count(),
+  ]);
+
+  return res.json({
+    stats: {
+      pendingReceipts: pending,
+      approvedReceipts: approved,
+      rejectedReceipts: rejected,
+      totalReceipts: pending + approved + rejected,
+      vouchersIssued,
+    },
+  });
+}
 
 export async function listReceipts(req: Request, res: Response) {
   const parsed = listQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Invalid status filter' });
+    return res.status(400).json({ error: 'Invalid query parameters' });
   }
 
-  const receipts = await prisma.receipt.findMany({
-    where: parsed.data.status ? { status: parsed.data.status } : undefined,
-    orderBy: { submittedAt: 'desc' },
-    include: {
-      user: { select: { id: true, name: true, email: true, phone: true } },
-      voucher: true,
-    },
-  });
+  const { status, page, limit } = parsed.data;
+  const where = status ? { status } : undefined;
+  const skip = (page - 1) * limit;
 
-  return res.json({ receipts });
+  // Fetch the page and the total count in parallel — the count is what
+  // lets the frontend render "Page 2 of 7" / disable Next on the last
+  // page, without fetching every row just to know how many there are.
+  const [receipts, total] = await Promise.all([
+    prisma.receipt.findMany({
+      where,
+      orderBy: { submittedAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true } },
+        voucher: true,
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.receipt.count({ where }),
+  ]);
+
+  return res.json({
+    receipts,
+    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  });
 }
 
 export async function approveReceipt(req: Request, res: Response) {
@@ -68,6 +104,21 @@ export async function approveReceipt(req: Request, res: Response) {
 
       return res.status(200).json(result);
     } catch (err: any) {
+      // P2025 = the conditional `where: { id, status: 'PENDING' }`
+      // update matched no row — a concurrent request (a double-click,
+      // or two admin tabs open on the same receipt) already approved
+      // or rejected this receipt between our initial status check
+      // above and this update actually committing. Same outcome the
+      // early check would have given if it had lost that race by a
+      // few milliseconds, so re-read the receipt and respond exactly
+      // like the early check does, instead of a generic 500.
+      if (err?.code === 'P2025') {
+        const current = await prisma.receipt.findUnique({ where: { id: receiptId } });
+        return res
+          .status(409)
+          .json({ error: `Receipt has already been ${(current?.status ?? 'reviewed').toLowerCase()}` });
+      }
+
       lastError = err;
       // P2002 = unique constraint violation (voucher code collision, or
       // receiptId already has a voucher from a concurrent request).

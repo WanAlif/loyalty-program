@@ -2,10 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import authRoutes from './routes/authRoutes';
 import receiptRoutes from './routes/receiptRoutes';
 import adminRoutes from './routes/adminRoutes';
 import voucherRoutes from './routes/voucherRoutes';
+import prisma from './lib/prisma';
+import { requireAuth } from './middleware/auth';
+import { asyncHandler } from './lib/asyncHandler';
 
 // Express app setup lives here, separate from index.ts's app.listen(),
 // so tests (Supertest) can import and exercise the app directly without
@@ -35,8 +39,43 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser());
 
-  // Static serving for uploaded receipt files (local disk storage).
-  app.use('/uploads', express.static('uploads'));
+  // Uploaded receipt files are private (proof-of-purchase images can
+  // show personal info) so they're served through this authenticated
+  // route instead of a public `express.static('uploads')` mount —
+  // otherwise anyone with a receipt's URL could view it without being
+  // logged in, guessable or not. `fileUrl` on the Receipt model keeps
+  // its existing `/uploads/<filename>` shape (no DB or frontend change
+  // needed); this route just intercepts that path, checks the
+  // requester is either the receipt's owner or an admin, then streams
+  // the file from disk. The filename allowlist blocks path traversal
+  // (e.g. `..%2f..%2fetc%2fpasswd`) even though multer only ever
+  // generates `<uuid>.<ext>` names itself.
+  const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+  const SAFE_FILENAME = /^[a-zA-Z0-9-]+\.(jpg|jpeg|png|webp|pdf)$/i;
+
+  app.get(
+    '/uploads/:filename',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { filename } = req.params;
+      if (!SAFE_FILENAME.test(filename)) {
+        return res.status(400).json({ error: 'Invalid file name' });
+      }
+
+      const receipt = await prisma.receipt.findFirst({ where: { fileUrl: `/uploads/${filename}` } });
+      if (!receipt) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      const isOwner = receipt.userId === req.user!.userId;
+      const isAdmin = req.user!.role === 'ADMIN';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ error: 'Not authorized to view this file' });
+      }
+
+      return res.sendFile(path.join(UPLOAD_DIR, filename));
+    })
+  );
 
   app.use('/api/auth', authRoutes);
   app.use('/api/receipts', receiptRoutes);

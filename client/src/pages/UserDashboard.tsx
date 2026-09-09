@@ -1,33 +1,61 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { api, apiErrorMessage, type Receipt, type Voucher } from '../api/client';
+import { useEffect, useState } from 'react';
+import { api, apiErrorMessage, type Receipt, type Pagination } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Header } from '../components/Header';
+
+const TABS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const;
+type Tab = (typeof TABS)[number];
+
+const PAGE_SIZE = 5;
+
+interface ReceiptStats {
+  pendingReceipts: number;
+  approvedReceipts: number;
+  rejectedReceipts: number;
+  totalReceipts: number;
+}
+
+interface VoucherStats {
+  availableVouchers: number;
+  redeemedVouchers: number;
+  expiredVouchers: number;
+  totalVouchers: number;
+}
 
 export function UserDashboard() {
   const { user } = useAuth();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [page, setPage] = useState(1);
+  const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
+  const [voucherStats, setVoucherStats] = useState<VoucherStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [orderId, setOrderId] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState('');
-  const [amount, setAmount] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [redeemingId, setRedeemingId] = useState<string | null>(null);
-  const [redeemError, setRedeemError] = useState('');
+  const [receiptFilter, setReceiptFilter] = useState<Tab>('ALL');
 
-  async function loadData() {
-    setLoading(true);
+  async function loadStats() {
     try {
-      const [receiptsRes, vouchersRes] = await Promise.all([
-        api.get('/receipts/me'),
-        api.get('/vouchers/me'),
+      const [receiptStatsRes, voucherStatsRes] = await Promise.all([
+        api.get('/receipts/me/stats'),
+        api.get('/vouchers/me/stats'),
       ]);
-      setReceipts(receiptsRes.data.receipts);
-      setVouchers(vouchersRes.data.vouchers);
+      setReceiptStats(receiptStatsRes.data.stats);
+      setVoucherStats(voucherStatsRes.data.stats);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    }
+  }
+
+  async function loadReceipts(t: Tab, p: number) {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/receipts/me', {
+        params: { ...(t === 'ALL' ? {} : { status: t }), page: p, limit: PAGE_SIZE },
+      });
+      setReceipts(res.data.receipts);
+      setPagination(res.data.pagination);
     } catch (err) {
       setError(apiErrorMessage(err));
     } finally {
@@ -36,57 +64,26 @@ export function UserDashboard() {
   }
 
   useEffect(() => {
-    loadData();
+    loadStats();
   }, []);
 
-  async function handleUpload(e: FormEvent) {
-    e.preventDefault();
-    setUploadError('');
-    if (!file) {
-      setUploadError('Please choose a receipt file');
-      return;
-    }
+  // Changing tabs starts back at page 1 — the old page number rarely
+  // makes sense against a different, differently-sized filtered list.
+  useEffect(() => {
+    setPage(1);
+  }, [receiptFilter]);
 
-    const formData = new FormData();
-    formData.append('orderId', orderId);
-    formData.append('purchaseDate', purchaseDate);
-    formData.append('amount', amount);
-    formData.append('file', file);
+  useEffect(() => {
+    loadReceipts(receiptFilter, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptFilter, page]);
 
-    setUploading(true);
-    try {
-      await api.post('/receipts', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setOrderId('');
-      setPurchaseDate('');
-      setAmount('');
-      setFile(null);
-      (document.getElementById('receipt-file') as HTMLInputElement).value = '';
-      await loadData();
-    } catch (err) {
-      setUploadError(apiErrorMessage(err));
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function voucherStatus(v: Voucher): 'ACTIVE' | 'REDEEMED' | 'EXPIRED' {
-    if (v.redeemedAt) return 'REDEEMED';
-    if (v.expiresAt && new Date(v.expiresAt) < new Date()) return 'EXPIRED';
-    return 'ACTIVE';
-  }
-
-  async function handleRedeem(voucherId: string) {
-    setRedeemError('');
-    setRedeemingId(voucherId);
-    try {
-      await api.post(`/vouchers/${voucherId}/redeem`);
-      await loadData();
-    } catch (err) {
-      setRedeemError(apiErrorMessage(err));
-    } finally {
-      setRedeemingId(null);
-    }
-  }
+  const receiptCounts: Record<Tab, number> = {
+    ALL: receiptStats?.totalReceipts ?? 0,
+    PENDING: receiptStats?.pendingReceipts ?? 0,
+    APPROVED: receiptStats?.approvedReceipts ?? 0,
+    REJECTED: receiptStats?.rejectedReceipts ?? 0,
+  };
 
   return (
     <div className="page">
@@ -94,121 +91,99 @@ export function UserDashboard() {
       <main className="container">
         <h1>Welcome, {user?.name}</h1>
 
-        <section className="card">
-          <h2>Upload a receipt</h2>
-          <form onSubmit={handleUpload} className="upload-form">
-            {uploadError && <p className="form-error">{uploadError}</p>}
-            <label>
-              Order ID
-              <input value={orderId} onChange={(e) => setOrderId(e.target.value)} required />
-            </label>
-            <label>
-              Purchase date
-              <input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} required />
-            </label>
-            <label>
-              Amount (RM)
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Receipt file (JPEG/PNG/WEBP/PDF, max 5MB)
-              <input
-                id="receipt-file"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                required
-              />
-            </label>
-            <button type="submit" disabled={uploading}>
-              {uploading ? 'Uploading...' : 'Submit receipt'}
-            </button>
-          </form>
+        <section className="stats-grid">
+          <div className="stat-tile">
+            <span className="stat-value">{receiptStats?.pendingReceipts ?? '-'}</span>
+            <span className="stat-label">Pending receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{receiptStats?.approvedReceipts ?? '-'}</span>
+            <span className="stat-label">Approved receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{receiptStats?.rejectedReceipts ?? '-'}</span>
+            <span className="stat-label">Rejected receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{voucherStats?.availableVouchers ?? '-'}</span>
+            <span className="stat-label">Available vouchers</span>
+          </div>
         </section>
 
         <section className="card">
           <h2>My receipts</h2>
-          {loading && <p>Loading...</p>}
-          {error && <p className="form-error">{error}</p>}
-          {!loading && receipts.length === 0 && <p className="empty-state">No receipts submitted yet.</p>}
-          {receipts.length > 0 && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                  <th>Note</th>
-                </tr>
-              </thead>
-              <tbody>
-                {receipts.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.orderId}</td>
-                    <td>RM {Number(r.amount).toFixed(2)}</td>
-                    <td>
-                      <span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span>
-                    </td>
-                    <td>{new Date(r.submittedAt).toLocaleDateString()}</td>
-                    <td>{r.rejectionReason ?? '-'}</td>
+          <div className="tabs">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                className={t === receiptFilter ? 'tab tab-active' : 'tab'}
+                onClick={() => setReceiptFilter(t)}
+              >
+                {t.charAt(0) + t.slice(1).toLowerCase()} ({receiptCounts[t]})
+              </button>
+            ))}
+          </div>
+          <div className="table-area">
+            {loading && <p>Loading...</p>}
+            {error && <p className="form-error">{error}</p>}
+            {!loading && receipts.length === 0 && (
+              <p className="empty-state">
+                No {receiptFilter === 'ALL' ? '' : receiptFilter.toLowerCase() + ' '}receipts
+                {receiptFilter === 'ALL' ? ' submitted yet' : ''}.
+              </p>
+            )}
+            {receipts.length > 0 && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Receipt ID</th>
+                    <th>Amount</th>
+                    <th>Receipt</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th>Note</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        <section className="card">
-          <h2>My vouchers</h2>
-          {redeemError && <p className="form-error">{redeemError}</p>}
-          {!loading && vouchers.length === 0 && <p className="empty-state">No vouchers earned yet.</p>}
-          {vouchers.length > 0 && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Amount</th>
-                  <th>From order</th>
-                  <th>Issued</th>
-                  <th>Expires</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {vouchers.map((v) => {
-                  const status = voucherStatus(v);
-                  return (
-                    <tr key={v.id}>
-                      <td className="voucher-code">{v.code}</td>
-                      <td>RM {Number(v.amount).toFixed(2)}</td>
-                      <td>{v.receipt?.orderId}</td>
-                      <td>{new Date(v.issuedAt).toLocaleDateString()}</td>
-                      <td>{v.expiresAt ? new Date(v.expiresAt).toLocaleDateString() : '-'}</td>
+                </thead>
+                <tbody>
+                  {receipts.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.orderId}</td>
+                      <td>{r.receiptNumber}</td>
+                      <td>RM {Number(r.amount).toFixed(2)}</td>
                       <td>
-                        <span className={`badge badge-voucher-${status.toLowerCase()}`}>{status}</span>
+                        <a href={`http://localhost:5000${r.fileUrl}`} target="_blank" rel="noreferrer">
+                          View file
+                        </a>
                       </td>
                       <td>
-                        {status === 'ACTIVE' && (
-                          <button onClick={() => handleRedeem(v.id)} disabled={redeemingId === v.id}>
-                            {redeemingId === v.id ? 'Redeeming...' : 'Redeem'}
-                          </button>
-                        )}
+                        <span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span>
                       </td>
+                      <td>{new Date(r.submittedAt).toLocaleDateString()}</td>
+                      <td>{r.rejectionReason ?? '-'}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {pagination && pagination.totalPages > 1 && (
+              <div className="pagination">
+                <button onClick={() => setPage((p) => p - 1)} disabled={loading || page <= 1}>
+                  Previous
+                </button>
+                <span>
+                  Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+                </span>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={loading || page >= pagination.totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
         </section>
       </main>
     </div>

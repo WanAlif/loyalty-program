@@ -14,11 +14,12 @@ The full assessment scope is implemented and tested:
 - ✅ Receipt upload (multipart file upload, validated with Zod + Multer)
 - ✅ Admin review: list by status, approve, reject (with reason)
 - ✅ Voucher auto-generation on approval, wrapped in a DB transaction
-- ✅ Voucher redemption (user-initiated, with expiry/double-redeem guards)
-- ✅ React frontend: auth pages, user dashboard (upload, history, voucher redemption), admin dashboard (review queue)
-- ✅ Automated test suite (26 tests) covering the core business logic
+- ✅ Voucher redemption (user-initiated, with expiry/double-redeem guards, and the voucher code kept hidden in the UI until it's actually been redeemed)
+- ✅ Server-side pagination and status filtering on every list endpoint (admin receipts, a user's own receipts, a user's own vouchers), each paired with a lightweight stats endpoint so tab counts don't require fetching every row
+- ✅ React frontend: auth pages, user dashboard (stats + receipt history), a separate upload page, a dedicated voucher page (view + redeem), a settings page (update profile), admin dashboard (stats + review queue)
+- ✅ Automated test suite (59 tests) covering the core business logic
 - ✅ CI pipeline (GitHub Actions) — typecheck, build, and test on every push
-- ✅ Security hardening: `helmet` headers, rate-limiting on login/register
+- ✅ Security hardening: `helmet` headers, rate-limiting on login/register, uploaded receipt files served through an authenticated route (not a public `express.static` mount), async route handlers safely wrapped for Express 4
 - ✅ Fully containerized deployment (Docker Compose: Postgres + server + nginx-served client)
 
 Not implemented (out of scope for the assessment / documented as a
@@ -88,7 +89,9 @@ deployment.
    ```bash
    npm run dev
    ```
-   Open `http://localhost:5173`. Log in with either seeded account above — regular users land on the upload/history dashboard, the admin account lands on the review queue.
+   Open `http://localhost:5173` and log in with the demo user account
+   above. The admin account has its own separate login page at
+   `http://localhost:5173/admin`.
 
 ## Running with Docker (containerized deployment)
 
@@ -102,9 +105,9 @@ docker compose up --build
 ```
 
 This builds the server image (multi-stage: compiles TypeScript, then a
-slim production image that runs `prisma migrate deploy` automatically
-on boot via `entrypoint.sh` before starting the server — so the database
-schema is always up to date with no manual step) and the client image
+slim production image whose start command runs `prisma migrate deploy`
+automatically before starting the server — so the database schema is
+always up to date with no manual step) and the client image
 (multi-stage: Vite production build, served by nginx). nginx proxies
 `/api` and `/uploads` through to the server container, so the browser
 only ever talks to one origin — no CORS involved in this setup, unlike
@@ -160,24 +163,95 @@ before they'd hit a real deploy), and runs the full test suite.
 
 ## API overview
 
-All routes are prefixed `/api`. Endpoints under `/receipts`, `/admin`,
-and `/vouchers` require a valid session cookie (`requireAuth`); `/admin`
-additionally requires the `ADMIN` role (`requireAdmin`).
+All routes are prefixed `/api` (except file access, listed last) and
+use an httpOnly session cookie for auth. This is just the endpoint
+list — full request/response shapes, validation rules, and every
+status code each one can return are in [`API.md`](./API.md).
 
-| Method | Path                          | Description                                      |
-| ------ | ----------------------------- | ------------------------------------------------- |
-| POST   | `/auth/register`              | Create an account, sets session cookie             |
-| POST   | `/auth/login`                 | Log in with email/phone + password                 |
-| POST   | `/auth/logout`                | Clear session cookie                                |
-| GET    | `/auth/me`                    | Current logged-in user                              |
-| POST   | `/receipts`                   | Upload a receipt (multipart: orderId, purchaseDate, amount, file) |
-| GET    | `/receipts/me`                | Current user's receipt history                      |
-| GET    | `/receipts/:id`                | A single receipt (must belong to the current user) |
-| GET    | `/vouchers/me`                 | Current user's earned vouchers                       |
-| POST   | `/vouchers/:id/redeem`         | Redeem an active voucher (must be owned, unredeemed, unexpired) |
-| GET    | `/admin/receipts?status=`      | List receipts, optionally filtered by status         |
-| POST   | `/admin/receipts/:id/approve`  | Approve a pending receipt → generates a voucher       |
-| POST   | `/admin/receipts/:id/reject`   | Reject a pending receipt (optional `reason` in body) |
+| Method | Path                         | Auth  | Description |
+| ------ | ---------------------------- | ----- | ----------- |
+| POST   | `/auth/register`             | —     | Create an account |
+| POST   | `/auth/login`                | —     | Log in (user) |
+| POST   | `/auth/admin-login`          | —     | Log in (admin) |
+| POST   | `/auth/logout`               | —     | Clear session |
+| GET    | `/auth/me`                   | user  | Current user |
+| PATCH  | `/auth/me`                   | user  | Update profile |
+| POST   | `/auth/change-password`      | user  | Change password |
+| POST   | `/receipts`                  | user  | Upload a receipt |
+| GET    | `/receipts/me`               | user  | My receipts (paginated) |
+| GET    | `/receipts/me/stats`         | user  | My receipt counts |
+| GET    | `/receipts/:id`              | user  | One receipt |
+| GET    | `/vouchers/me`               | user  | My vouchers (paginated) |
+| GET    | `/vouchers/me/stats`         | user  | My voucher counts |
+| POST   | `/vouchers/:id/redeem`       | user  | Redeem a voucher |
+| GET    | `/admin/stats`               | admin | Global stats |
+| GET    | `/admin/receipts`            | admin | All receipts (paginated) |
+| POST   | `/admin/receipts/:id/approve`| admin | Approve → issue voucher |
+| POST   | `/admin/receipts/:id/reject` | admin | Reject |
+| GET    | `/uploads/:filename`         | user  | View a receipt file (owner or admin only) |
+
+## Sequence diagram
+
+The core loyalty program flow end to end — register, upload, admin
+review, voucher issued, redeem — including the pagination/stats and
+file-access calls each screen actually makes, not just the writes:
+
+```mermaid
+sequenceDiagram
+    actor User
+    actor Admin
+    participant API as Express API
+    participant DB as PostgreSQL (Prisma)
+    participant FS as Local disk (uploads/)
+
+    User->>API: POST /auth/register or /auth/login
+    API->>DB: Verify / create user, hash password
+    API-->>User: Set httpOnly JWT cookie
+
+    User->>API: POST /receipts (orderId, receiptNumber, amount, file)
+    API->>API: Validate with Zod, store file via Multer
+    API->>DB: Create Receipt (status = PENDING)
+    API-->>User: 201 Created
+
+    Admin->>API: POST /auth/admin-login
+    API->>DB: Verify admin credentials
+    API-->>Admin: Set httpOnly JWT cookie
+
+    Admin->>API: GET /admin/stats
+    API->>DB: Count receipts by status (parallel)
+    API-->>Admin: Stat tiles + tab counts
+
+    Admin->>API: GET /admin/receipts?status=PENDING&page=1&limit=5
+    API->>DB: Query receipts (skip/take) + count (parallel)
+    API-->>Admin: Receipt list + pagination info
+
+    Admin->>API: GET /uploads/:filename (view receipt image)
+    API->>DB: Look up which receipt owns this file
+    API->>API: Check requester is the owner or an admin
+    API->>FS: Stream file
+    API-->>Admin: 200 OK (image/PDF)
+
+    Admin->>API: POST /admin/receipts/:id/approve
+    API->>DB: Begin transaction
+    API->>DB: Update Receipt (status = APPROVED) — conditional on still PENDING
+    API->>DB: Create Voucher (code, amount, expiresAt)
+    API->>DB: Commit transaction
+    API-->>Admin: 200 OK (receipt + voucher)
+
+    User->>API: GET /vouchers/me/stats
+    API->>DB: Count vouchers by derived status (available/redeemed/expired)
+    API-->>User: Tab counts
+
+    User->>API: GET /vouchers/me?status=AVAILABLE&page=1&limit=5
+    API->>DB: Query vouchers (skip/take) + count (parallel)
+    API-->>User: Voucher list (code hidden in the UI until redeemedAt is set)
+
+    User->>API: POST /vouchers/:id/redeem
+    API->>DB: Check not already redeemed / not expired
+    API->>DB: Update Voucher (redeemedAt = now)
+    API-->>User: 200 OK (redeemed voucher, code now included)
+    Note over User: Code shown in the redeem confirmation<br/>and revealed in the table row from here on
+```
 
 ## Pushing to GitHub
 
@@ -196,57 +270,37 @@ files, so nothing sensitive or heavy gets committed.
 
 ## Architecture notes / decisions
 
-- **Auth:** JWT stored in an httpOnly, `SameSite=Lax` cookie rather than
-  `localStorage` — avoids XSS token theft. CORS is configured with
-  `credentials: true` and an explicit origin (required for cookies to
-  work cross-origin between the Vite dev server and this API). Sessions
-  expire after 30 minutes (`JWT_EXPIRES_IN`); on the frontend, an axios
-  response interceptor detects an expired/invalid session on any
-  authenticated request and cleanly redirects to the login page with an
-  explanatory message, instead of leaving the UI stuck on a raw error.
-- **Admin access:** a `role` field on the same `User` table (not a
-  separate admin table/login flow) — one login path, gated by
-  `requireAdmin` middleware on admin-only routes. There's no
-  "become admin" signup flow; the admin account is created by the
-  Prisma seed script and its credentials are documented above.
-- **Receipt/voucher integrity:** `Voucher.receiptId` is a unique column,
-  so the database itself prevents a receipt from ever generating more
-  than one voucher — even if an approve action is retried or double-clicked.
-  The approve endpoint also explicitly guards against re-approving or
-  re-rejecting an already-reviewed receipt (`409 Conflict`), and the
-  status update + voucher creation happen inside a single Prisma
-  `$transaction` so they can never happen partially.
-- **Voucher reward rule:** not specified by the assessment brief, so
-  it's a documented assumption (`server/src/lib/voucher.ts`): a voucher
-  is worth **10% of the approved receipt amount** and expires **90 days**
-  after issuance. Easy to change in one place if a different rule was
-  intended.
-- **File storage:** local disk (`server/uploads/`), acceptable per the
-  assessment brief. Not deployed publicly, so this has no persistence
-  concerns for grading purposes.
-- **Money fields:** stored as Prisma `Decimal`, not `Float`, to avoid
-  floating-point rounding errors on currency amounts.
-- **Testability:** Express app construction (`server/src/app.ts`) is
-  separated from the `app.listen()` call (`server/src/index.ts`)
-  specifically so tests can exercise the app directly via Supertest
-  without binding a real port.
-- **Voucher redemption:** implemented as user-initiated (the logged-in
-  user redeems their own voucher from their dashboard), rather than
-  admin/staff-initiated at a point of sale — a reasonable assumption
-  given there's no real checkout integration in this assessment.
-  Redemption is a one-way stamp (`Voucher.redeemedAt`): blocked if
-  already redeemed (`409`) or past `expiresAt` (`410`), and scoped so a
-  user can only redeem their own voucher (`404` otherwise, matching the
-  same not-found-rather-than-403 pattern used for receipts).
-- **Deliberately out of scope, given more time:** email notifications
-  on approval/rejection, and an actual live/public deployment (the app
-  runs either locally via npm or fully containerized via Docker Compose
-  — see above — but isn't deployed to a public host, per the
-  assessment brief).
-- **Containerization:** `server/Dockerfile` and `client/Dockerfile` are
-  multi-stage builds (compile/build stage, then a minimal production
-  image) tied together by the root `docker-compose.yml`. Migrations run
-  automatically on server container boot via `entrypoint.sh` rather than
-  as a manual step, and the client is served by nginx which proxies API
-  calls through to the server — meaning the containerized deployment has
-  no cross-origin requests at all, unlike local dev.
+- **Auth:** JWT in an httpOnly, `SameSite=Lax` cookie (not `localStorage`, to avoid XSS token theft). Sessions expire after 30 minutes; an axios interceptor redirects to login on an expired/invalid session instead of leaving the UI stuck on a raw error.
+- **Admin access:** a `role` field on `User`, not a separate table. Login is split into `/auth/login` (users only) and `/auth/admin-login` (admins only) — each rejects the wrong role with the same generic `401 Invalid credentials` used for a wrong password, so neither endpoint ever reveals whether an account of the other kind exists. `requireAdmin` middleware gates every `/api/admin/*` route as a second, independent layer.
+- **Receipt/voucher integrity:** an approved receipt can never generate two vouchers — defended three ways: an early `409` if the receipt isn't `PENDING`; a conditional Prisma update (`where: { id, status: 'PENDING' }`) that safely loses a genuine concurrency race instead of double-approving; and a DB-level unique constraint on `Voucher.receiptId` as a last-resort backstop. Covered by a test that fires two concurrent approve requests and asserts exactly one success and one voucher row.
+- **Voucher reward rule:** not specified by the brief, so it's a documented assumption (`server/src/lib/voucher.ts`) — 10% of the receipt amount, 90-day expiry. One place to change if a different rule was intended.
+- **Money fields:** stored as Prisma `Decimal`, not `Float`, to avoid floating-point rounding on currency.
+- **Testability:** Express app construction (`app.ts`) is separated from `app.listen()` (`index.ts`) so Supertest can exercise the app directly without binding a real port.
+- **Voucher redemption:** user-initiated (no real point-of-sale integration in scope). A one-way stamp (`redeemedAt`) — blocked if already redeemed (`409`) or expired (`410`), scoped so a user can only redeem their own (`404` otherwise). The code itself stays hidden in the UI until redemption, to keep "redeem" a meaningful action rather than something skippable by just reading the table.
+- **Duplicate protection:** `orderId` and `receiptNumber` are each unique **per user** (not globally) — resubmitting the same receipt to farm multiple vouchers is blocked with `409`, but two different users can share either value. An orphaned uploaded file is cleaned up if a duplicate is caught after Multer already wrote it to disk.
+- **Field formats:** Order ID rejects whitespace; Receipt ID must be exactly 4 digits (numeric input mode + live digit-stripping + `maxLength` on the frontend); purchase date can't be in the future; amount is capped at RM 2000 (undocumented by the brief, an easily-changed assumption). All four are enforced both client-side (UX) and server-side (the real guarantee) — same defense-in-depth pattern throughout.
+- **Async error handling:** Express 4 doesn't auto-catch a rejected promise from an `async` route handler (Express 5 does) — every route is wrapped in a small `asyncHandler` helper so an unexpected error reaches the centralized error handler instead of hanging the request forever.
+- **File access:** uploaded receipts are served through an authenticated route (`GET /uploads/:filename`, owner-or-admin only, filename allowlisted against path traversal), not a public `express.static` mount, since they can contain personal information.
+- **Pagination and stats:** every list endpoint shares one pattern — Zod-validated `page`/`limit`/`status`, Prisma `skip`/`take` with the total count fetched in parallel. Each list has a matching lightweight `/stats` endpoint so tab counts don't require fetching every row. Voucher "status" is derived (not stored) from `redeemedAt`/`expiresAt` via one shared helper used by both the list filter and the stats query, so they can't disagree. All three tables default to 5 rows/page, matched to a fixed 300px height.
+- **Toast notifications:** a lightweight global toast system confirms successful actions (upload, redeem, approve/reject, profile/password changes); failures stay as inline `form-error` banners instead, since those need to stay visible until resolved.
+- **Deliberately out of scope:** email notifications, and a live/public deployment (runs locally via npm or fully containerized via Docker Compose, but isn't deployed to a public host, per the brief).
+- **Containerization:** multi-stage `Dockerfile`s for both server and client, tied together by `docker-compose.yml`. Migrations run automatically on server boot (`prisma migrate deploy` before start); nginx proxies the client to the API, so that setup has no cross-origin requests at all, unlike local dev.
+
+## AI-assisted development
+
+I used Claude (Claude Code / Cowork) throughout this project's
+development, not just for isolated snippets — including:
+
+- Implementing endpoints, Zod validation, and the Prisma schema against the assessment requirements
+- Writing and iterating the Jest/Supertest suite (59 tests)
+- Security hardening — rate limiting, the strict admin/user login boundary, the authenticated `/uploads/:filename` file route, wrapping async route handlers for Express 4
+- Adding pagination and the `/stats` endpoints, and updating the React pages to match
+- Writing this README and `API.md`, keeping both in sync as features were added
+
+Business/functional decisions (the voucher reward percentage and expiry
+period, the RM 2000 cap, field validation rules) were mine, made where
+the brief didn't specify them and documented as assumptions above. All
+generated code was reviewed before accepting it, and the app was run
+and manually tested end to end throughout — AI sped up the mechanics of
+turning a requirement into working, tested code; the requirements
+themselves and verifying correctness stayed a human-in-the-loop process.
