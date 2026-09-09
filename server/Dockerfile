@@ -30,7 +30,8 @@ COPY package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
-RUN mkdir -p uploads
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x entrypoint.sh && mkdir -p uploads
 
 EXPOSE 5000
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["./entrypoint.sh"]
