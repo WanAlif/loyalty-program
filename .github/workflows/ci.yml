@@ -93,3 +93,15 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build -t loyalty-server ./server
+
+      - name: Build client image
+        run: docker build -t loyalty-client ./client
