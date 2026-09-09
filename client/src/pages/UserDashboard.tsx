@@ -16,6 +16,8 @@ export function UserDashboard() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState('');
 
   async function loadData() {
     setLoading(true);
@@ -64,6 +66,25 @@ export function UserDashboard() {
       setUploadError(apiErrorMessage(err));
     } finally {
       setUploading(false);
+    }
+  }
+
+  function voucherStatus(v: Voucher): 'ACTIVE' | 'REDEEMED' | 'EXPIRED' {
+    if (v.redeemedAt) return 'REDEEMED';
+    if (v.expiresAt && new Date(v.expiresAt) < new Date()) return 'EXPIRED';
+    return 'ACTIVE';
+  }
+
+  async function handleRedeem(voucherId: string) {
+    setRedeemError('');
+    setRedeemingId(voucherId);
+    try {
+      await api.post(`/vouchers/${voucherId}/redeem`);
+      await loadData();
+    } catch (err) {
+      setRedeemError(apiErrorMessage(err));
+    } finally {
+      setRedeemingId(null);
     }
   }
 
@@ -147,6 +168,7 @@ export function UserDashboard() {
 
         <section className="card">
           <h2>My vouchers</h2>
+          {redeemError && <p className="form-error">{redeemError}</p>}
           {!loading && vouchers.length === 0 && <p className="empty-state">No vouchers earned yet.</p>}
           {vouchers.length > 0 && (
             <table>
@@ -157,18 +179,33 @@ export function UserDashboard() {
                   <th>From order</th>
                   <th>Issued</th>
                   <th>Expires</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {vouchers.map((v) => (
-                  <tr key={v.id}>
-                    <td className="voucher-code">{v.code}</td>
-                    <td>RM {Number(v.amount).toFixed(2)}</td>
-                    <td>{v.receipt?.orderId}</td>
-                    <td>{new Date(v.issuedAt).toLocaleDateString()}</td>
-                    <td>{v.expiresAt ? new Date(v.expiresAt).toLocaleDateString() : '-'}</td>
-                  </tr>
-                ))}
+                {vouchers.map((v) => {
+                  const status = voucherStatus(v);
+                  return (
+                    <tr key={v.id}>
+                      <td className="voucher-code">{v.code}</td>
+                      <td>RM {Number(v.amount).toFixed(2)}</td>
+                      <td>{v.receipt?.orderId}</td>
+                      <td>{new Date(v.issuedAt).toLocaleDateString()}</td>
+                      <td>{v.expiresAt ? new Date(v.expiresAt).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <span className={`badge badge-voucher-${status.toLowerCase()}`}>{status}</span>
+                      </td>
+                      <td>
+                        {status === 'ACTIVE' && (
+                          <button onClick={() => handleRedeem(v.id)} disabled={redeemingId === v.id}>
+                            {redeemingId === v.id ? 'Redeeming...' : 'Redeem'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
