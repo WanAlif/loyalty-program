@@ -8,7 +8,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { login } = useAuth();
+  const { login, sessionMessage } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e: FormEvent) {
@@ -29,6 +29,7 @@ export function LoginPage() {
     <div className="auth-page">
       <form onSubmit={handleSubmit} className="auth-form">
         <h1>Log in</h1>
+        {sessionMessage && <p className="form-notice">{sessionMessage}</p>}
         {error && <p className="form-error">{error}</p>}
         <label>
           Email or phone

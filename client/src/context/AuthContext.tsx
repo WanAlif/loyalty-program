@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, type User } from '../api/client';
+import { api, SESSION_EXPIRED_EVENT, type User } from '../api/client';
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  sessionMessage: string | null;
+  clearSessionMessage: () => void;
   login: (identifier: string, password: string) => Promise<void>;
   register: (data: { name: string; email?: string; phone?: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -14,6 +16,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // On first load, check if a valid session cookie already exists.
@@ -24,14 +27,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    // Fired by the axios interceptor in api/client.ts whenever an
+    // authenticated request comes back 401 (expired/invalid session
+    // cookie). Clearing `user` here sends the app back to /login via
+    // ProtectedRoute, instead of leaving pages stuck showing a raw
+    // "Not authenticated" error banner.
+    function handleSessionExpired() {
+      setUser((current) => {
+        if (current) {
+          setSessionMessage('Your session has expired. Please log in again.');
+        }
+        return null;
+      });
+    }
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
+
   async function login(identifier: string, password: string) {
     const res = await api.post('/auth/login', { identifier, password });
     setUser(res.data.user);
+    setSessionMessage(null);
   }
 
   async function register(data: { name: string; email?: string; phone?: string; password: string }) {
     const res = await api.post('/auth/register', data);
     setUser(res.data.user);
+    setSessionMessage(null);
   }
 
   async function logout() {
@@ -39,8 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  function clearSessionMessage() {
+    setSessionMessage(null);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, sessionMessage, clearSessionMessage, login, register, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

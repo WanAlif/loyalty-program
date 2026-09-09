@@ -92,6 +92,15 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .form-error { color: #d1435b; font-size: 0.9rem; margin: 0; }
 
+.form-notice {
+  color: #916500;
+  background: #fff3cd;
+  padding: 0.5rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
 .empty-state { color: #888; font-size: 0.9rem; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }

@@ -7,6 +7,33 @@ export const api = axios.create({
   withCredentials: true, // required to send/receive the httpOnly JWT cookie
 });
 
+// Custom event fired whenever an authenticated request comes back 401 —
+// i.e. the session cookie is missing/expired. AuthContext listens for this
+// and clears the logged-in user, which sends the app back to /login via
+// ProtectedRoute instead of leaving a raw error banner on screen.
+export const SESSION_EXPIRED_EVENT = 'session-expired';
+
+// Requests where a 401 is an *expected*, self-handled outcome (wrong
+// login credentials, or the initial /auth/me check before any login has
+// happened) rather than a genuinely expired session — these should NOT
+// trigger the global redirect.
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/me', '/auth/logout'];
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const url: string = error?.config?.url || '';
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((path) => url.includes(path));
+
+    if (status === 401 && !isAuthEndpoint) {
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export interface User {
   id: string;
   name: string;
