@@ -14,12 +14,15 @@ The full assessment scope is implemented and tested:
 - ✅ Receipt upload (multipart file upload, validated with Zod + Multer)
 - ✅ Admin review: list by status, approve, reject (with reason)
 - ✅ Voucher auto-generation on approval, wrapped in a DB transaction
-- ✅ React frontend: auth pages, user dashboard (upload + history), admin dashboard (review queue)
-- ✅ Automated test suite (20 tests) covering the core business logic
+- ✅ Voucher redemption (user-initiated, with expiry/double-redeem guards)
+- ✅ React frontend: auth pages, user dashboard (upload, history, voucher redemption), admin dashboard (review queue)
+- ✅ Automated test suite (26 tests) covering the core business logic
 - ✅ CI pipeline (GitHub Actions) — typecheck, build, and test on every push
+- ✅ Security hardening: `helmet` headers, rate-limiting on login/register
+- ✅ Fully containerized deployment (Docker Compose: Postgres + server + nginx-served client)
 
 Not implemented (out of scope for the assessment / documented as a
-deliberate cut, see below): voucher redemption, email notifications, live
+deliberate cut, see below): email notifications, an actual public/live
 deployment.
 
 ## Prerequisites
@@ -171,6 +174,7 @@ additionally requires the `ADMIN` role (`requireAdmin`).
 | GET    | `/receipts/me`                | Current user's receipt history                      |
 | GET    | `/receipts/:id`                | A single receipt (must belong to the current user) |
 | GET    | `/vouchers/me`                 | Current user's earned vouchers                       |
+| POST   | `/vouchers/:id/redeem`         | Redeem an active voucher (must be owned, unredeemed, unexpired) |
 | GET    | `/admin/receipts?status=`      | List receipts, optionally filtered by status         |
 | POST   | `/admin/receipts/:id/approve`  | Approve a pending receipt → generates a voucher       |
 | POST   | `/admin/receipts/:id/reject`   | Reject a pending receipt (optional `reason` in body) |
@@ -226,13 +230,19 @@ files, so nothing sensitive or heavy gets committed.
   separated from the `app.listen()` call (`server/src/index.ts`)
   specifically so tests can exercise the app directly via Supertest
   without binding a real port.
-- **Deliberately out of scope, given more time:** voucher redemption
-  (vouchers are generated but there's no "redeem" action yet), email
-  notifications on approval/rejection, rate-limiting and `helmet`
-  security headers, and an actual live/public deployment (the app runs
-  either locally via npm or fully containerized via Docker Compose —
-  see above — but isn't deployed to a public host, per the assessment
-  brief).
+- **Voucher redemption:** implemented as user-initiated (the logged-in
+  user redeems their own voucher from their dashboard), rather than
+  admin/staff-initiated at a point of sale — a reasonable assumption
+  given there's no real checkout integration in this assessment.
+  Redemption is a one-way stamp (`Voucher.redeemedAt`): blocked if
+  already redeemed (`409`) or past `expiresAt` (`410`), and scoped so a
+  user can only redeem their own voucher (`404` otherwise, matching the
+  same not-found-rather-than-403 pattern used for receipts).
+- **Deliberately out of scope, given more time:** email notifications
+  on approval/rejection, and an actual live/public deployment (the app
+  runs either locally via npm or fully containerized via Docker Compose
+  — see above — but isn't deployed to a public host, per the
+  assessment brief).
 - **Containerization:** `server/Dockerfile` and `client/Dockerfile` are
   multi-stage builds (compile/build stage, then a minimal production
   image) tied together by the root `docker-compose.yml`. Migrations run
