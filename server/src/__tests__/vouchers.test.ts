@@ -2,7 +2,7 @@ import request from 'supertest';
 import { createApp } from '../app';
 import prisma from '../lib/prisma';
 import { resetDb, disconnectDb } from './helpers/db';
-import { createUser, loginAndGetCookie } from './helpers/auth';
+import { createUser, loginAndGetCookie, loginAdminAndGetCookie } from './helpers/auth';
 import { testFileBuffer, testFileName } from './helpers/testFile';
 
 const app = createApp();
@@ -22,12 +22,13 @@ async function setupVoucher() {
   await createUser({ email: 'redeemadmin@test.com', role: 'ADMIN' });
 
   const userCookie = await loginAndGetCookie(app, 'redeemer@test.com');
-  const adminCookie = await loginAndGetCookie(app, 'redeemadmin@test.com');
+  const adminCookie = await loginAdminAndGetCookie(app, 'redeemadmin@test.com');
 
   const uploadRes = await request(app)
     .post('/api/receipts')
     .set('Cookie', userCookie)
     .field('orderId', 'ORD-VOUCHER-TEST')
+    .field('receiptNumber', '9004')
     .field('purchaseDate', '2026-01-01')
     .field('amount', '100.00')
     .attach('file', testFileBuffer, testFileName);
