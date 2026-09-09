@@ -118,6 +118,10 @@ th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #eee
 .badge-approved { background: #d4edda; color: #1e6b34; }
 .badge-rejected { background: #f8d7da; color: #93202f; }
 
+.badge-voucher-active { background: #d4edda; color: #1e6b34; }
+.badge-voucher-redeemed { background: #e2e3e5; color: #495057; }
+.badge-voucher-expired { background: #f8d7da; color: #93202f; }
+
 .voucher-code { font-family: monospace; font-weight: 600; }
 
 .muted { color: #888; font-size: 0.8rem; }
