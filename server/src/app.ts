@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes';
 import receiptRoutes from './routes/receiptRoutes';
@@ -12,6 +13,20 @@ import voucherRoutes from './routes/voucherRoutes';
 export function createApp() {
   const app = express();
   const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+
+  // Sets standard security headers (X-Content-Type-Options, disables
+  // X-Powered-By, etc). CSP is off — it's a browser-page protection and
+  // this is a pure JSON API with no HTML views to protect; leaving it on
+  // with default rules is a common source of confusing false restrictions
+  // on API-only backends. crossOriginResourcePolicy is relaxed to allow
+  // the client (a different origin in local dev) to load uploaded
+  // receipt files served from /uploads.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
 
   // credentials: true + an explicit origin (not '*') is required for
   // httpOnly cookies to be sent/received cross-origin between the
