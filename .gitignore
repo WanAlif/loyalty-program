@@ -25,3 +25,6 @@ npm-debug.log*
 
 # Prisma
 server/prisma/*.db
+
+# Local curl/testing artifacts (contain real session cookies)
+*cookies.txt
