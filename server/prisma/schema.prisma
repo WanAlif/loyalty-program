@@ -57,8 +57,12 @@ model Receipt {
 
   @@index([userId])
   @@index([status])
-  @@unique([userId, orderId])
-  @@unique([userId, receiptNumber])
+  // Composite, not two separate uniques — a genuine duplicate resubmission
+  // needs BOTH the order ID and the receipt ID to match. Two different
+  // shops can coincidentally issue the same short receiptNumber (or, more
+  // rarely, share an orderId) to the same user without that being flagged
+  // as farming — only submitting the exact same order+receipt pair twice is.
+  @@unique([userId, orderId, receiptNumber])
   @@map("receipts")
 }
 
