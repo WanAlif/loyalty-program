@@ -119,10 +119,14 @@ Auth: required · `multipart/form-data`
 - `201` → `{ receipt }` (`status: "PENDING"`)
 - `400` → any field validation failure, or no file attached
 - `401` → not authenticated
-- `409` → this user already has a receipt with this `orderId` **or** this `receiptNumber` (message names which one; the uploaded file is deleted from disk in this case)
+- `409` → this user already has a receipt with this exact `orderId` **and** `receiptNumber` pair together (the uploaded file is deleted from disk in this case)
 
-Note: `orderId` and `receiptNumber` are each unique **per user**, not
-globally — two different users can submit the same value.
+Note: uniqueness is a single composite constraint —
+`@@unique([userId, orderId, receiptNumber])` — not two separate ones. A
+duplicate is only flagged when **both** fields match an existing receipt
+for that user; matching just one (e.g. the same `receiptNumber` from two
+different shops) is allowed. Two different users can always share either
+value, or both.
 
 ### `GET /receipts/me`
 Auth: required · Paginated
@@ -209,6 +213,17 @@ Query: `status` (`PENDING`/`APPROVED`/`REJECTED`, optional), `page`, `limit`.
 - `404` → receipt not found
 - `409` → the receipt isn't `PENDING`
 
+### `DELETE /admin/receipts/:id`
+
+Deletes the receipt. If it has a voucher, the voucher is deleted in the
+same transaction — unless it's already been redeemed, in which case the
+whole request is refused instead. The uploaded file is best-effort
+removed from disk afterward (a missing file doesn't fail the request).
+
+- `204` → No Content
+- `404` → receipt not found
+- `409` → `Cannot delete — this receipt's voucher has already been redeemed`
+
 ---
 
 ## File access
@@ -237,8 +252,9 @@ See `server/prisma/schema.prisma` for the source of truth. Summary:
 `updatedAt`. At least one of `email`/`phone` is enforced at the
 application layer, not the DB.
 
-**Receipt** — `id`, `userId`, `orderId` (unique per user), `receiptNumber`
-(unique per user, 4 digits), `purchaseDate`, `amount` (`Decimal(10,2)`),
+**Receipt** — `id`, `userId`, `orderId`, `receiptNumber` (4 digits) — the
+pair unique together per user via `@@unique([userId, orderId,
+receiptNumber])` — `purchaseDate`, `amount` (`Decimal(10,2)`),
 `fileUrl`, `status` (`PENDING`/`APPROVED`/`REJECTED`), `submittedAt`,
 `reviewedAt?`, `reviewedBy?`, `rejectionReason?`.
 

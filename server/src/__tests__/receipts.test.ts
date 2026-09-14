@@ -143,7 +143,7 @@ describe('POST /api/receipts', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects the same user submitting the same order ID twice', async () => {
+  it('rejects the same user resubmitting the same order ID + receipt ID pair', async () => {
     await createUser({ email: 'dupeorder@test.com' });
     const cookie = await loginAndGetCookie(app, 'dupeorder@test.com');
 
@@ -157,17 +157,51 @@ describe('POST /api/receipts', () => {
       .attach('file', testFileBuffer, testFileName);
     expect(first.status).toBe(201);
 
+    // Same orderId AND same receiptNumber — the actual duplicate case the
+    // composite @@unique([userId, orderId, receiptNumber]) constraint
+    // exists to catch (resubmitting the same real receipt to farm a
+    // second voucher off one purchase).
     const second = await request(app)
       .post('/api/receipts')
       .set('Cookie', cookie)
       .field('orderId', 'ORD-DUPE')
-      .field('receiptNumber', '2002')
+      .field('receiptNumber', '2001')
       .field('purchaseDate', '2026-01-02')
       .field('amount', '30.00')
       .attach('file', testFileBuffer, testFileName);
 
     expect(second.status).toBe(409);
-    expect(second.body.error).toMatch(/order ID/);
+    expect(second.body.error).toMatch(/order ID and receipt ID/);
+  });
+
+  it('allows the same user to reuse an order ID with a different receipt ID', async () => {
+    // Not a real-world duplicate — e.g. a corrected resubmission, or two
+    // genuinely different purchases whose orderId only coincidentally
+    // matches. The composite constraint only blocks when BOTH fields
+    // match, so this must succeed.
+    await createUser({ email: 'partialdupe-order@test.com' });
+    const cookie = await loginAndGetCookie(app, 'partialdupe-order@test.com');
+
+    const first = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-PARTIAL')
+      .field('receiptNumber', '2010')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+    expect(first.status).toBe(201);
+
+    const second = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-PARTIAL')
+      .field('receiptNumber', '2011')
+      .field('purchaseDate', '2026-01-02')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(second.status).toBe(201);
   });
 
   it('allows two different users to submit the same order ID', async () => {
@@ -262,7 +296,11 @@ describe('POST /api/receipts', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects the same user submitting the same receipt ID twice', async () => {
+  it('allows the same user to reuse a receipt ID with a different order ID', async () => {
+    // This is the exact bug the composite constraint fixed: two different
+    // shops can coincidentally issue the same short receiptNumber (e.g.
+    // both "0001") to the same person — that's not a duplicate submission
+    // and must not be blocked just because receiptNumber alone matches.
     await createUser({ email: 'dupereceipt@test.com' });
     const cookie = await loginAndGetCookie(app, 'dupereceipt@test.com');
 
@@ -285,8 +323,7 @@ describe('POST /api/receipts', () => {
       .field('amount', '30.00')
       .attach('file', testFileBuffer, testFileName);
 
-    expect(second.status).toBe(409);
-    expect(second.body.error).toMatch(/receipt ID/);
+    expect(second.status).toBe(201);
   });
 
   it('allows two different users to submit the same receipt ID', async () => {
