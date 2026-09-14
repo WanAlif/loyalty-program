@@ -31,11 +31,11 @@ export function UploadPage() {
       return;
     }
     if (/\s/.test(orderId)) {
-      setUploadError('Order ID cannot contain spaces');
+      setUploadError('No. cannot contain spaces');
       return;
     }
     if (!/^\d{4}$/.test(receiptNumber)) {
-      setUploadError('Receipt ID must be a 4 digit number');
+      setUploadError('Order ID must be a 4 digit number');
       return;
     }
     if (Number(amount) > 2000) {
@@ -87,17 +87,17 @@ export function UploadPage() {
               </p>
             )}
             <label>
-              Order ID
+              No.
               <input
                 value={orderId}
                 onChange={(e) => { setOrderId(e.target.value); setUploadSuccess(false); }}
                 pattern="\S+"
-                title="Order ID cannot contain spaces"
+                title="No. cannot contain spaces"
                 required
               />
             </label>
             <label>
-              Receipt ID
+              Order ID
               <input
                 value={receiptNumber}
                 onChange={(e) => {
@@ -110,7 +110,7 @@ export function UploadPage() {
                 inputMode="numeric"
                 pattern="\d{4}"
                 maxLength={4}
-                title="Receipt ID must be a 4 digit number"
+                title="Order ID must be a 4 digit number"
                 required
               />
             </label>

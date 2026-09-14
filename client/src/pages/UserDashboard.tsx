@@ -136,8 +136,8 @@ export function UserDashboard() {
               <table>
                 <thead>
                   <tr>
+                    <th>No.</th>
                     <th>Order ID</th>
-                    <th>Receipt ID</th>
                     <th>Amount</th>
                     <th>Receipt</th>
                     <th>Status</th>

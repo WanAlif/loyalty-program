@@ -137,7 +137,7 @@ export function VoucherPage() {
                   <tr>
                     <th>Code</th>
                     <th>Amount</th>
-                    <th>Order ID</th>
+                    <th>No.</th>
                     <th>Issued</th>
                     <th>Expires</th>
                     <th>Status</th>

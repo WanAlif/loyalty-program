@@ -181,8 +181,8 @@ export function AdminDashboard() {
               <thead>
                 <tr>
                   <th>User</th>
+                  <th>No.</th>
                   <th>Order ID</th>
-                  <th>Receipt ID</th>
                   <th>Amount</th>
                   <th>Receipt</th>
                   <th>Submitted</th>
@@ -228,9 +228,15 @@ export function AdminDashboard() {
                       )}
                     </td>
                     <td>
-                      <button onClick={() => handleDelete(r.id)} disabled={busyId === r.id} className="btn-danger">
-                        Delete
-                      </button>
+                      {r.voucher?.redeemedAt ? (
+                        <span className="muted" title="Its voucher has already been redeemed">
+                          -
+                        </span>
+                      ) : (
+                        <button onClick={() => handleDelete(r.id)} disabled={busyId === r.id} className="btn-danger">
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
