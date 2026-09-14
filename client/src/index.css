@@ -176,7 +176,11 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .empty-state { color: #888; font-size: 0.9rem; }
 
-.table-area { height: 300px; overflow-y: auto; }
+/* No fixed height/inner scroll here — every list endpoint already caps
+   pagination at 5 rows/page, so the table (and the Previous/Next controls
+   below it) always fits its content; the page itself scrolls if needed
+   instead of a clipped scrollbox inside the card. */
+.table-area { overflow-x: auto; }
 
 .stats-grid {
   display: grid;
@@ -206,13 +210,6 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   text-decoration: underline;
   font: inherit;
   cursor: pointer;
-}
-
-.table-area thead th {
-  position: sticky;
-  top: 0;
-  background: white;
-  z-index: 1;
 }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
