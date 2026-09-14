@@ -171,7 +171,7 @@ describe('POST /api/receipts', () => {
       .attach('file', testFileBuffer, testFileName);
 
     expect(second.status).toBe(409);
-    expect(second.body.error).toMatch(/order ID and receipt ID/);
+    expect(second.body.error).toMatch(/No\. and Order ID/);
   });
 
   it('allows the same user to reuse an order ID with a different receipt ID', async () => {
