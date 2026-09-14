@@ -24,6 +24,10 @@ const createReceiptSchema = z.object({
   amount: z
     .string()
     .refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Amount must be a positive number')
+    // Undocumented by the brief, same as the RM 2000 cap — a floor rather
+    // than a ceiling this time, partly to keep the voucher reward (10% of
+    // this amount) from rounding down to a trivial or zero value.
+    .refine((v) => Number(v) >= 10, 'Amount must be at least RM 10.00')
     .refine((v) => Number(v) <= 2000, 'Amount cannot exceed RM 2000'),
 });
 
