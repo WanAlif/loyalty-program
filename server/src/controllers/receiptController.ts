@@ -4,14 +4,19 @@ import fs from 'fs/promises';
 import prisma from '../lib/prisma';
 
 const createReceiptSchema = z.object({
+  // Field is still called `orderId` internally — only its displayed label
+  // changed to "No." on the frontend, so the user-facing messages here
+  // match that label.
   orderId: z
     .string()
-    .min(1, 'Order ID is required')
-    .refine((v) => !/\s/.test(v), 'Order ID cannot contain spaces'),
+    .min(1, 'No. is required')
+    .refine((v) => !/\s/.test(v), 'No. cannot contain spaces'),
   // A 4-digit numeric code — no letters, no spaces, no punctuation.
+  // Field is still called `receiptNumber` internally — displayed as
+  // "Order ID" on the frontend.
   receiptNumber: z
     .string()
-    .regex(/^\d{4}$/, 'Receipt ID must be a 4 digit number'),
+    .regex(/^\d{4}$/, 'Order ID must be a 4 digit number'),
   purchaseDate: z
     .string()
     .refine((v) => !isNaN(Date.parse(v)), 'Invalid purchase date')
@@ -19,6 +24,10 @@ const createReceiptSchema = z.object({
   amount: z
     .string()
     .refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Amount must be a positive number')
+    // Undocumented by the brief, same as the RM 2000 cap — a floor rather
+    // than a ceiling this time, partly to keep the voucher reward (10% of
+    // this amount) from rounding down to a trivial or zero value.
+    .refine((v) => Number(v) >= 10, 'Amount must be at least RM 10.00')
     .refine((v) => Number(v) <= 2000, 'Amount cannot exceed RM 2000'),
 });
 
@@ -61,7 +70,7 @@ export async function createReceipt(req: Request, res: Response) {
       // clean it up so a rejected upload doesn't leave an orphaned file.
       await fs.unlink(req.file.path).catch(() => {});
       return res.status(409).json({
-        error: 'You have already submitted a receipt with this order ID and receipt ID',
+        error: 'You have already submitted a receipt with this No. and Order ID',
       });
     }
     throw err;

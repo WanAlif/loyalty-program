@@ -181,8 +181,9 @@ export function AdminDashboard() {
               <thead>
                 <tr>
                   <th>User</th>
+                  <th>No.</th>
                   <th>Order ID</th>
-                  <th>Receipt ID</th>
+                  <th>Purchase Date</th>
                   <th>Amount</th>
                   <th>Receipt</th>
                   <th>Submitted</th>
@@ -201,6 +202,7 @@ export function AdminDashboard() {
                     </td>
                     <td>{r.orderId}</td>
                     <td>{r.receiptNumber}</td>
+                    <td>{new Date(r.purchaseDate).toLocaleDateString()}</td>
                     <td>RM {Number(r.amount).toFixed(2)}</td>
                     <td>
                       <a href={`http://localhost:5000${r.fileUrl}`} target="_blank" rel="noreferrer">
@@ -228,9 +230,15 @@ export function AdminDashboard() {
                       )}
                     </td>
                     <td>
-                      <button onClick={() => handleDelete(r.id)} disabled={busyId === r.id} className="btn-danger">
-                        Delete
-                      </button>
+                      {r.voucher?.redeemedAt ? (
+                        <span className="muted" title="Its voucher has already been redeemed">
+                          -
+                        </span>
+                      ) : (
+                        <button onClick={() => handleDelete(r.id)} disabled={busyId === r.id} className="btn-danger">
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

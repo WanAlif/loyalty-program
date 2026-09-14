@@ -76,6 +76,38 @@ describe('POST /api/receipts', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects an amount under RM 10', async () => {
+    await createUser({ email: 'underlimit@test.com' });
+    const cookie = await loginAndGetCookie(app, 'underlimit@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-UNDERLIMIT')
+      .field('receiptNumber', '1008')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '9.99')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts an amount exactly at the RM 10 limit', async () => {
+    await createUser({ email: 'atminlimit@test.com' });
+    const cookie = await loginAndGetCookie(app, 'atminlimit@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-ATMINLIMIT')
+      .field('receiptNumber', '1009')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '10.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(201);
+  });
+
   it('rejects an amount over RM 2000', async () => {
     await createUser({ email: 'overlimit@test.com' });
     const cookie = await loginAndGetCookie(app, 'overlimit@test.com');
@@ -171,7 +203,7 @@ describe('POST /api/receipts', () => {
       .attach('file', testFileBuffer, testFileName);
 
     expect(second.status).toBe(409);
-    expect(second.body.error).toMatch(/order ID and receipt ID/);
+    expect(second.body.error).toMatch(/No\. and Order ID/);
   });
 
   it('allows the same user to reuse an order ID with a different receipt ID', async () => {

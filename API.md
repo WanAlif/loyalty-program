@@ -113,7 +113,7 @@ Auth: required · `multipart/form-data`
 | orderId       | string | required, no whitespace |
 | receiptNumber | string | exactly 4 digits |
 | purchaseDate  | string | a parseable date, not in the future |
-| amount        | string | a positive number, ≤ 2000 |
+| amount        | string | a number, between 10 and 2000 inclusive |
 | file          | file   | JPEG/PNG/WEBP/PDF only, max 5MB |
 
 - `201` → `{ receipt }` (`status: "PENDING"`)
