@@ -18,7 +18,7 @@ The full assessment scope is implemented and tested:
 - ✅ Server-side pagination and status filtering on every list endpoint (admin receipts, a user's own receipts, a user's own vouchers), each paired with a lightweight stats endpoint so tab counts don't require fetching every row — every table renders in full with no inner scroll, since pagination already caps each page at 5 rows
 - ✅ Admin can delete a receipt (with a confirmation prompt), which also removes its voucher if one was issued — blocked with a `409` if that voucher has already been redeemed, to protect a completed transaction's audit trail
 - ✅ React frontend: auth pages, user dashboard (stats + receipt history), a separate upload page, a dedicated voucher page (view + redeem), a settings page (update profile), admin dashboard (stats + review queue)
-- ✅ Automated test suite (60 tests) covering the core business logic
+- ✅ Automated test suite (62 tests) covering the core business logic
 - ✅ CI pipeline (GitHub Actions) — typecheck, build, and test on every push
 - ✅ Security hardening: `helmet` headers, rate-limiting on login/register, uploaded receipt files served through an authenticated route (not a public `express.static` mount), async route handlers safely wrapped for Express 4
 - ✅ Fully containerized deployment (Docker Compose: Postgres + server + nginx-served client)
@@ -295,7 +295,7 @@ I used Claude (Claude Code / Cowork) throughout this project's
 development, not just for isolated snippets — including:
 
 - Implementing endpoints, Zod validation, and the Prisma schema against the assessment requirements
-- Writing and iterating the Jest/Supertest suite (60 tests)
+- Writing and iterating the Jest/Supertest suite (62 tests)
 - Security hardening — rate limiting, the strict admin/user login boundary, the authenticated `/uploads/:filename` file route, wrapping async route handlers for Express 4
 - Adding pagination and the `/stats` endpoints, and updating the React pages to match
 - Writing this README and `API.md`, keeping both in sync as features were added
