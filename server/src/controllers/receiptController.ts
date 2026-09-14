@@ -48,22 +48,21 @@ export async function createReceipt(req: Request, res: Response) {
 
     return res.status(201).json({ receipt });
   } catch (err: any) {
-    // P2002 = unique constraint violation — this user already has a
-    // receipt with this orderId or this receiptNumber
-    // (@@unique([userId, orderId]) / @@unique([userId, receiptNumber])).
-    // Different users CAN share either value; this only blocks the same
-    // user resubmitting the same order/receipt to farm multiple
-    // vouchers off one purchase. Prisma's error names which field(s)
-    // collided in `meta.target`, so the message can be specific rather
-    // than a generic "something duplicate" — falls back to the order ID
-    // wording if that detail isn't available for some reason.
+    // P2002 = unique constraint violation on the composite
+    // @@unique([userId, orderId, receiptNumber]) — this user already has a
+    // receipt with this EXACT order ID + receipt ID pair. Requiring both to
+    // match (rather than two separate constraints on each field) means two
+    // genuinely different receipts that happen to share just one of the two
+    // values — e.g. two different shops both printing receipt "0001" — are
+    // not wrongly rejected as duplicates. This only blocks resubmitting the
+    // same real receipt to farm multiple vouchers off one purchase.
     if (err?.code === 'P2002') {
       // Multer already wrote the file to disk before this failed —
       // clean it up so a rejected upload doesn't leave an orphaned file.
       await fs.unlink(req.file.path).catch(() => {});
-      const target: string[] = err?.meta?.target ?? [];
-      const field = target.includes('receiptNumber') ? 'receipt ID' : 'order ID';
-      return res.status(409).json({ error: `You have already submitted a receipt for this ${field}` });
+      return res.status(409).json({
+        error: 'You have already submitted a receipt with this order ID and receipt ID',
+      });
     }
     throw err;
   }

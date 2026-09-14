@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import fs from 'fs/promises';
+import path from 'path';
 import prisma from '../lib/prisma';
 import { generateVoucherCode, calculateVoucherAmount, calculateExpiryDate } from '../lib/voucher';
+
+const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 
 const listQuerySchema = z.object({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
@@ -159,4 +163,46 @@ export async function rejectReceipt(req: Request, res: Response) {
   });
 
   return res.json({ receipt: updated });
+}
+
+export async function deleteReceipt(req: Request, res: Response) {
+  const receiptId = req.params.id;
+
+  const receipt = await prisma.receipt.findUnique({
+    where: { id: receiptId },
+    include: { voucher: true },
+  });
+
+  if (!receipt) {
+    return res.status(404).json({ error: 'Receipt not found' });
+  }
+
+  // A receipt whose voucher has already been redeemed represents a real,
+  // completed transaction — deleting it would destroy that audit trail.
+  // Deletion is meant for cleaning up a receipt (test data, a mistaken
+  // upload, a rejected/pending one), not for reversing a reward that's
+  // already been claimed. An issued-but-unredeemed voucher is still fair
+  // game — the admin action that created it is simply being undone.
+  if (receipt.voucher?.redeemedAt) {
+    return res.status(409).json({
+      error: "Cannot delete — this receipt's voucher has already been redeemed",
+    });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (receipt.voucher) {
+      await tx.voucher.delete({ where: { id: receipt.voucher.id } });
+    }
+    await tx.receipt.delete({ where: { id: receiptId } });
+  });
+
+  // Best-effort cleanup of the uploaded file on disk — a file that's
+  // already missing (or fails to delete for some other reason) shouldn't
+  // block the receipt/voucher deletion from having already succeeded.
+  const filename = receipt.fileUrl.split('/').pop();
+  if (filename) {
+    await fs.unlink(path.join(UPLOAD_DIR, filename)).catch(() => {});
+  }
+
+  return res.status(204).send();
 }

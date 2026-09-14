@@ -101,6 +101,33 @@ export function AdminDashboard() {
     }
   }
 
+  async function handleDelete(id: string) {
+    const confirmed = window.confirm('Are you sure you want to delete this receipt? This cannot be undone.');
+    if (!confirmed) return;
+
+    setActionError('');
+    setBusyId(id);
+    try {
+      await api.delete(`/admin/receipts/${id}`);
+      // Deleting the last row on a page (other than page 1) would leave an
+      // empty page behind — step back a page when that happens instead of
+      // showing a blank table with valid Previous/Next controls around it.
+      // Changing `page` re-triggers the [tab, page] effect that reloads the
+      // list, so only the stats need refreshing separately in that branch.
+      if (receipts.length === 1 && page > 1) {
+        setPage((p) => p - 1);
+        await loadStats();
+      } else {
+        await refreshAfterAction();
+      }
+      showToast('Receipt deleted');
+    } catch (err) {
+      setActionError(apiErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const tabCounts: Record<Tab, number> = {
     ALL: stats?.totalReceipts ?? 0,
     PENDING: stats?.pendingReceipts ?? 0,
@@ -161,6 +188,7 @@ export function AdminDashboard() {
                   <th>Submitted</th>
                   <th>Status</th>
                   <th>Details</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -198,6 +226,11 @@ export function AdminDashboard() {
                       {r.status === 'APPROVED' && (
                         <span className="voucher-code">{r.voucher?.code ?? '-'}</span>
                       )}
+                    </td>
+                    <td>
+                      <button onClick={() => handleDelete(r.id)} disabled={busyId === r.id} className="btn-danger">
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
