@@ -38,6 +38,10 @@ export function UploadPage() {
       setUploadError('Order ID must be a 4 digit number');
       return;
     }
+    if (Number(amount) < 10) {
+      setUploadError('Amount must be at least RM 10.00');
+      return;
+    }
     if (Number(amount) > 2000) {
       setUploadError('Amount cannot exceed RM 2000');
       return;
@@ -129,7 +133,7 @@ export function UploadPage() {
               <input
                 type="number"
                 step="0.01"
-                min="0.01"
+                min="10"
                 max="2000"
                 value={amount}
                 onChange={(e) => { setAmount(e.target.value); setUploadSuccess(false); }}

@@ -138,6 +138,7 @@ export function UserDashboard() {
                   <tr>
                     <th>No.</th>
                     <th>Order ID</th>
+                    <th>Purchase Date</th>
                     <th>Amount</th>
                     <th>Receipt</th>
                     <th>Status</th>
@@ -150,6 +151,7 @@ export function UserDashboard() {
                     <tr key={r.id}>
                       <td>{r.orderId}</td>
                       <td>{r.receiptNumber}</td>
+                      <td>{new Date(r.purchaseDate).toLocaleDateString()}</td>
                       <td>RM {Number(r.amount).toFixed(2)}</td>
                       <td>
                         <a href={`http://localhost:5000${r.fileUrl}`} target="_blank" rel="noreferrer">
