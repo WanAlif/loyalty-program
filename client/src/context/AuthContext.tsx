@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, []);
 
+  // User login — same shape as adminLogin below, different endpoint.
   async function login(identifier: string, password: string) {
     const res = await api.post('/auth/login', { identifier, password });
     setUser(res.data.user);
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.data.user as User;
   }
 
+  // Admin login — hits a separate endpoint, not a shared one with a role check.
   async function adminLogin(identifier: string, password: string) {
     const res = await api.post('/auth/admin-login', { identifier, password });
     setUser(res.data.user);
@@ -62,17 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.data.user as User;
   }
 
+  // Registration also logs the user straight in (server sets the cookie).
   async function register(data: { name: string; email?: string; phone?: string; password: string }) {
     const res = await api.post('/auth/register', data);
     setUser(res.data.user);
     setSessionMessage(null);
   }
 
+  // Settings page — update name/email/phone.
   async function updateProfile(data: { name: string; email?: string; phone?: string }) {
     const res = await api.patch('/auth/me', data);
     setUser(res.data.user);
   }
 
+  // Clears the cookie server-side, then local state.
   async function logout() {
     await api.post('/auth/logout');
     setUser(null);

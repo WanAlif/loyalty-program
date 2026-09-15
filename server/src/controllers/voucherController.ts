@@ -29,6 +29,7 @@ const listMyVouchersQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(5),
 });
 
+// GET /vouchers/me — paginated list of the current user's own vouchers.
 export async function listMyVouchers(req: Request, res: Response) {
   const parsed = listMyVouchersQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -83,6 +84,7 @@ export async function getMyVoucherStats(req: Request, res: Response) {
   });
 }
 
+// POST /vouchers/:id/redeem — marks a voucher redeemed once.
 export async function redeemVoucher(req: Request, res: Response) {
   const voucher = await prisma.voucher.findFirst({
     where: { id: req.params.id, userId: req.user!.userId },

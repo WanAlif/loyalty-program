@@ -13,6 +13,7 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(5),
 });
 
+// GET /admin/stats — counts across all users, for the tab labels + tiles.
 export async function getStats(_req: Request, res: Response) {
   const [pending, approved, rejected, vouchersIssued] = await Promise.all([
     prisma.receipt.count({ where: { status: 'PENDING' } }),
@@ -65,6 +66,7 @@ export async function listReceipts(req: Request, res: Response) {
   });
 }
 
+// POST /admin/receipts/:id/approve — flips to APPROVED + issues a voucher, atomically.
 export async function approveReceipt(req: Request, res: Response) {
   const receiptId = req.params.id;
   const adminId = req.user!.userId;
@@ -138,6 +140,7 @@ const rejectSchema = z.object({
   reason: z.string().min(1).optional(),
 });
 
+// POST /admin/receipts/:id/reject — flips to REJECTED, with an optional reason.
 export async function rejectReceipt(req: Request, res: Response) {
   const receiptId = req.params.id;
   const adminId = req.user!.userId;
@@ -165,6 +168,7 @@ export async function rejectReceipt(req: Request, res: Response) {
   return res.json({ receipt: updated });
 }
 
+// DELETE /admin/receipts/:id — removes a receipt (+ its voucher, if any).
 export async function deleteReceipt(req: Request, res: Response) {
   const receiptId = req.params.id;
 
