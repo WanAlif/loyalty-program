@@ -81,6 +81,17 @@ export async function approveReceipt(req: Request, res: Response) {
     return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
   }
 
+  // Segregation of duties: the account approving a receipt must not be
+  // the account that submitted it — otherwise the one role with the
+  // power to issue vouchers could pay itself out with no independent
+  // check. requireUser on receiptRoutes already stops an admin from
+  // submitting in the first place; this is the second, load-bearing
+  // layer in case that ever changes or a receipt's ownership is
+  // reassigned some other way.
+  if (receipt.userId === adminId) {
+    return res.status(403).json({ error: 'Cannot approve a receipt you submitted yourself' });
+  }
+
   const voucherAmount = calculateVoucherAmount(Number(receipt.amount));
   const expiresAt = calculateExpiryDate();
 
@@ -158,6 +169,12 @@ export async function rejectReceipt(req: Request, res: Response) {
 
   if (receipt.status !== 'PENDING') {
     return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
+  }
+
+  // Same segregation-of-duties guard as approveReceipt — kept here too so
+  // self-review isn't just blocked on the "yes" path.
+  if (receipt.userId === adminId) {
+    return res.status(403).json({ error: 'Cannot review a receipt you submitted yourself' });
   }
 
   const updated = await prisma.receipt.update({

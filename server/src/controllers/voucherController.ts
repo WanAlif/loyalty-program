@@ -55,8 +55,15 @@ export async function listMyVouchers(req: Request, res: Response) {
     prisma.voucher.count({ where }),
   ]);
 
+  // The frontend hides `code` in the table until redemption, but that's
+  // only a rendering choice — the value would otherwise still be sitting
+  // in this JSON response (visible in the network tab regardless of what
+  // the UI shows). Strip it server-side for anything not yet redeemed, so
+  // "redeem to reveal" is an actual guarantee, not just cosmetic.
+  const sanitized = vouchers.map((v) => (v.redeemedAt ? v : { ...v, code: null }));
+
   return res.json({
-    vouchers,
+    vouchers: sanitized,
     pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   });
 }
