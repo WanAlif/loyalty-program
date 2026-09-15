@@ -106,7 +106,7 @@ Auth: required
 ## Receipts
 
 ### `POST /receipts`
-Auth: required · `multipart/form-data`
+Auth: required (USER only — an `ADMIN` account gets `403`, see Segregation of duties below) · `multipart/form-data`
 
 | Field         | Type   | Rules |
 | ------------- | ------ | ----- |
@@ -119,6 +119,7 @@ Auth: required · `multipart/form-data`
 - `201` → `{ receipt }` (`status: "PENDING"`)
 - `400` → any field validation failure, or no file attached
 - `401` → not authenticated
+- `403` → authenticated as an `ADMIN` account (`requireUser` — receipt/voucher endpoints are USER-only)
 - `409` → this user already has a receipt with this exact `orderId` **and** `receiptNumber` pair together (the uploaded file is deleted from disk in this case)
 
 Note: uniqueness is a single composite constraint —
@@ -164,6 +165,12 @@ Query: `status` (`AVAILABLE`/`REDEEMED`/`EXPIRED`, optional), `page`, `limit`.
 - `200` → `{ vouchers: Voucher[], pagination }` — only the current user's own vouchers, each including a summary of the receipt it was issued for
 - `400` → invalid query params
 
+Note: `code` is `null` in this response for any voucher where
+`redeemedAt` isn't set yet — stripped server-side, not just hidden by
+the frontend. This is what actually makes "redeem to reveal" a
+guarantee rather than a UI convention; reading the raw response before
+redeeming doesn't leak the code.
+
 ### `GET /vouchers/me/stats`
 Auth: required
 
@@ -172,7 +179,7 @@ Auth: required
 ### `POST /vouchers/:id/redeem`
 Auth: required
 
-- `200` → `{ voucher }` with `redeemedAt` now set — **this response is the first guaranteed place the voucher's `code` is meaningful to show**, since the frontend hides it in the list until redemption
+- `200` → `{ voucher }` with `redeemedAt` now set and `code` included — **this is the first response where the code is actually present**, since `GET /vouchers/me` strips it until redemption
 - `404` → doesn't exist, or belongs to a different user
 - `409` → already redeemed
 - `410` → past `expiresAt`
@@ -198,6 +205,7 @@ Query: `status` (`PENDING`/`APPROVED`/`REJECTED`, optional), `page`, `limit`.
 ### `POST /admin/receipts/:id/approve`
 
 - `200` → `{ receipt, voucher }` — receipt flips to `APPROVED`, a voucher is created atomically in the same transaction (10% of the receipt amount, expires in 90 days)
+- `403` → the receipt's `userId` matches the requesting admin's own id (see Segregation of duties below)
 - `404` → receipt not found
 - `409` → the receipt isn't `PENDING` (already approved/rejected — including the case where a concurrent request won the race)
 - `500` → an internal voucher-code collision couldn't be resolved after 3 retries (extremely unlikely — codes are random from a 32-character alphabet)
@@ -210,8 +218,17 @@ Query: `status` (`PENDING`/`APPROVED`/`REJECTED`, optional), `page`, `limit`.
 
 - `200` → `{ receipt }` (`status: "REJECTED"`, `rejectionReason` stored if given)
 - `400` → invalid body
+- `403` → the receipt's `userId` matches the requesting admin's own id (see Segregation of duties below)
 - `404` → receipt not found
 - `409` → the receipt isn't `PENDING`
+
+**Segregation of duties:** an admin account can never approve or reject
+a receipt it submitted itself. This is enforced twice — `requireUser`
+on `receiptRoutes`/`voucherRoutes` means an admin can't submit a
+receipt in the first place (`403` on `POST /receipts`), and
+`approveReceipt`/`rejectReceipt` separately check `receipt.userId !==
+req.user.userId` before doing anything else, so the guarantee doesn't
+depend only on the first layer holding.
 
 ### `DELETE /admin/receipts/:id`
 
