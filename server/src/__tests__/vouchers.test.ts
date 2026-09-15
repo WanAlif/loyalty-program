@@ -40,6 +40,22 @@ async function setupVoucher() {
   return { userCookie, voucherId: approveRes.body.voucher.id as string };
 }
 
+describe('GET /api/vouchers/me', () => {
+  it('hides the code for an unredeemed voucher and reveals it after redemption', async () => {
+    const { userCookie, voucherId } = await setupVoucher();
+
+    const before = await request(app).get('/api/vouchers/me').set('Cookie', userCookie);
+    const beforeVoucher = before.body.vouchers.find((v: { id: string }) => v.id === voucherId);
+    expect(beforeVoucher.code).toBeNull();
+
+    await request(app).post(`/api/vouchers/${voucherId}/redeem`).set('Cookie', userCookie);
+
+    const after = await request(app).get('/api/vouchers/me').set('Cookie', userCookie);
+    const afterVoucher = after.body.vouchers.find((v: { id: string }) => v.id === voucherId);
+    expect(afterVoucher.code).toMatch(/^LP-/);
+  });
+});
+
 describe('POST /api/vouchers/:id/redeem', () => {
   it('redeems an active voucher and stamps redeemedAt', async () => {
     const { userCookie, voucherId } = await setupVoucher();

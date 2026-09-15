@@ -13,6 +13,7 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(5),
 });
 
+// GET /admin/stats — counts across all users, for the tab labels + tiles.
 export async function getStats(_req: Request, res: Response) {
   const [pending, approved, rejected, vouchersIssued] = await Promise.all([
     prisma.receipt.count({ where: { status: 'PENDING' } }),
@@ -65,6 +66,7 @@ export async function listReceipts(req: Request, res: Response) {
   });
 }
 
+// POST /admin/receipts/:id/approve — flips to APPROVED + issues a voucher, atomically.
 export async function approveReceipt(req: Request, res: Response) {
   const receiptId = req.params.id;
   const adminId = req.user!.userId;
@@ -77,6 +79,17 @@ export async function approveReceipt(req: Request, res: Response) {
 
   if (receipt.status !== 'PENDING') {
     return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
+  }
+
+  // Segregation of duties: the account approving a receipt must not be
+  // the account that submitted it — otherwise the one role with the
+  // power to issue vouchers could pay itself out with no independent
+  // check. requireUser on receiptRoutes already stops an admin from
+  // submitting in the first place; this is the second, load-bearing
+  // layer in case that ever changes or a receipt's ownership is
+  // reassigned some other way.
+  if (receipt.userId === adminId) {
+    return res.status(403).json({ error: 'Cannot approve a receipt you submitted yourself' });
   }
 
   const voucherAmount = calculateVoucherAmount(Number(receipt.amount));
@@ -138,6 +151,7 @@ const rejectSchema = z.object({
   reason: z.string().min(1).optional(),
 });
 
+// POST /admin/receipts/:id/reject — flips to REJECTED, with an optional reason.
 export async function rejectReceipt(req: Request, res: Response) {
   const receiptId = req.params.id;
   const adminId = req.user!.userId;
@@ -157,6 +171,12 @@ export async function rejectReceipt(req: Request, res: Response) {
     return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
   }
 
+  // Same segregation-of-duties guard as approveReceipt — kept here too so
+  // self-review isn't just blocked on the "yes" path.
+  if (receipt.userId === adminId) {
+    return res.status(403).json({ error: 'Cannot review a receipt you submitted yourself' });
+  }
+
   const updated = await prisma.receipt.update({
     where: { id: receiptId },
     data: { status: 'REJECTED', reviewedAt: new Date(), reviewedBy: adminId, rejectionReason: parsed.data.reason },
@@ -165,6 +185,7 @@ export async function rejectReceipt(req: Request, res: Response) {
   return res.json({ receipt: updated });
 }
 
+// DELETE /admin/receipts/:id — removes a receipt (+ its voucher, if any).
 export async function deleteReceipt(req: Request, res: Response) {
   const receiptId = req.params.id;
 

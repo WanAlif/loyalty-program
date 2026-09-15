@@ -14,11 +14,12 @@ The full assessment scope is implemented and tested:
 - ✅ Receipt upload (multipart file upload, validated with Zod + Multer)
 - ✅ Admin review: list by status, approve, reject (with reason)
 - ✅ Voucher auto-generation on approval, wrapped in a DB transaction
-- ✅ Voucher redemption (user-initiated, with expiry/double-redeem guards, and the voucher code kept hidden in the UI until it's actually been redeemed)
+- ✅ Voucher redemption (user-initiated, with expiry/double-redeem guards, and the voucher code withheld by the API itself — not just hidden in the UI — until it's actually been redeemed)
 - ✅ Server-side pagination and status filtering on every list endpoint (admin receipts, a user's own receipts, a user's own vouchers), each paired with a lightweight stats endpoint so tab counts don't require fetching every row — every table renders in full with no inner scroll, since pagination already caps each page at 5 rows
 - ✅ Admin can delete a receipt (with a confirmation prompt), which also removes its voucher if one was issued — blocked with a `409` if that voucher has already been redeemed, to protect a completed transaction's audit trail
+- ✅ Segregation of duties: an admin account can't submit a receipt at all, and even if one somehow held a receipt, `approveReceipt`/`rejectReceipt` refuse to review a receipt they submitted themselves — closes a self-approval fraud path
 - ✅ React frontend: auth pages, user dashboard (stats + receipt history), a separate upload page, a dedicated voucher page (view + redeem), a settings page (update profile), admin dashboard (stats + review queue)
-- ✅ Automated test suite (62 tests) covering the core business logic
+- ✅ Automated test suite (66 tests) covering the core business logic
 - ✅ CI pipeline (GitHub Actions) — typecheck, build, and test on every push
 - ✅ Security hardening: `helmet` headers, rate-limiting on login/register, uploaded receipt files served through an authenticated route (not a public `express.static` mount), async route handlers safely wrapped for Express 4
 - ✅ Fully containerized deployment (Docker Compose: Postgres + server + nginx-served client)
@@ -246,7 +247,7 @@ sequenceDiagram
 
     User->>API: GET /vouchers/me?status=AVAILABLE&page=1&limit=5
     API->>DB: Query vouchers (skip/take) + count (parallel)
-    API-->>User: Voucher list (code hidden in the UI until redeemedAt is set)
+    API-->>User: Voucher list (code stripped by the API until redeemedAt is set)
 
     User->>API: POST /vouchers/:id/redeem
     API->>DB: Check not already redeemed / not expired
@@ -278,7 +279,8 @@ files, so nothing sensitive or heavy gets committed.
 - **Voucher reward rule:** not specified by the brief, so it's a documented assumption (`server/src/lib/voucher.ts`) — 10% of the receipt amount, 90-day expiry. One place to change if a different rule was intended.
 - **Money fields:** stored as Prisma `Decimal`, not `Float`, to avoid floating-point rounding on currency.
 - **Testability:** Express app construction (`app.ts`) is separated from `app.listen()` (`index.ts`) so Supertest can exercise the app directly without binding a real port.
-- **Voucher redemption:** user-initiated (no real point-of-sale integration in scope). A one-way stamp (`redeemedAt`) — blocked if already redeemed (`409`) or expired (`410`), scoped so a user can only redeem their own (`404` otherwise). The code itself stays hidden in the UI until redemption, to keep "redeem" a meaningful action rather than something skippable by just reading the table.
+- **Voucher redemption:** user-initiated (no real point-of-sale integration in scope). A one-way stamp (`redeemedAt`) — blocked if already redeemed (`409`) or expired (`410`), scoped so a user can only redeem their own (`404` otherwise). The code is stripped server-side (`null`) in `GET /vouchers/me` for anything not yet redeemed — not just hidden by the frontend — so "redeem to reveal" can't be defeated by reading the raw API response, and `redeemedAt` stays meaningful as an audit signal.
+- **Segregation of duties (admin self-approval):** `receiptRoutes`/`voucherRoutes` restrict themselves to `USER` accounts (`requireUser`), so an admin can't submit their own receipt in the first place. `approveReceipt` and `rejectReceipt` additionally refuse (`403`) to review a receipt whose `userId` matches the reviewing admin's own id — a second, independent layer in case a receipt's ownership were ever reassigned some other way. Without both, the one account with the power to approve vouchers could pay itself out with no independent check.
 - **Duplicate protection:** a single composite constraint, `@@unique([userId, orderId, receiptNumber])`, not two separate ones — resubmitting the exact same order ID **and** receipt ID pair is blocked with `409`. Two separate constraints had a real false-positive bug: two different shops can coincidentally issue the same short receipt number to the same person, and that isn't a duplicate. Requiring both fields to match fixes that while still catching the real case. Two different users can freely share either value, or both. An orphaned uploaded file is cleaned up if a duplicate is caught after Multer already wrote it to disk.
 - **Deleting a receipt (admin):** blocked with `409` if its voucher has already been redeemed — that's a completed transaction, and deleting the receipt behind it would erase the only record it happened. An unredeemed voucher is safe to delete along with its receipt, since that's just undoing the approve action, not reversing something a user already claimed. The uploaded file is best-effort removed from disk afterward.
 - **Field formats:** the `orderId` field (labeled **No.** on the frontend) rejects whitespace; `receiptNumber` (labeled **Order ID** on the frontend) must be exactly 4 digits (numeric input mode + live digit-stripping + `maxLength` on the frontend); purchase date can't be in the future; amount must be between RM 10.00 and RM 2000 (undocumented by the brief, an easily-changed assumption — the floor also keeps the 10% voucher reward from rounding down to a trivial or zero value). All four are enforced both client-side (UX) and server-side (the real guarantee) — same defense-in-depth pattern throughout. Note the display labels don't match the underlying field names 1:1 — a deliberate UI relabeling, not a data model change.
@@ -295,7 +297,7 @@ I used Claude (Claude Code / Cowork) throughout this project's
 development, not just for isolated snippets — including:
 
 - Implementing endpoints, Zod validation, and the Prisma schema against the assessment requirements
-- Writing and iterating the Jest/Supertest suite (62 tests)
+- Writing and iterating the Jest/Supertest suite (66 tests)
 - Security hardening — rate limiting, the strict admin/user login boundary, the authenticated `/uploads/:filename` file route, wrapping async route handlers for Express 4
 - Adding pagination and the `/stats` endpoints, and updating the React pages to match
 - Writing this README and `API.md`, keeping both in sync as features were added

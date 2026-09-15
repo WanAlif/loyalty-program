@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../app';
 import { resetDb, disconnectDb } from './helpers/db';
-import { createUser, loginAndGetCookie } from './helpers/auth';
+import { createUser, loginAndGetCookie, loginAdminAndGetCookie } from './helpers/auth';
 import { testFileBuffer, testFileName } from './helpers/testFile';
 
 const app = createApp();
@@ -43,6 +43,22 @@ describe('POST /api/receipts', () => {
     expect(res.status).toBe(201);
     expect(res.body.receipt).toMatchObject({ orderId: 'ORD-1', receiptNumber: '1001', status: 'PENDING' });
     expect(res.body.receipt.fileUrl).toMatch(/^\/uploads\//);
+  });
+
+  it('rejects an admin account submitting a receipt', async () => {
+    await createUser({ email: 'submitadmin@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'submitadmin@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', adminCookie)
+      .field('orderId', 'ORD-ADMIN-SELF')
+      .field('receiptNumber', '1099')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '50.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(403);
   });
 
   it('rejects an upload with no file attached', async () => {
