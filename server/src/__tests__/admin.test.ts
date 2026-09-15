@@ -164,6 +164,34 @@ describe('POST /api/admin/receipts/:id/approve', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('blocks an admin from approving a receipt they submitted themselves', async () => {
+    // requireUser already stops an admin from hitting POST /receipts, so
+    // this seeds the receipt directly via Prisma to exercise the
+    // controller-level guard on its own — the layer that still matters
+    // if a receipt's ownership were ever reassigned some other way.
+    const admin = await createUser({ email: 'selfapprove@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'selfapprove@test.com');
+    const receipt = await prisma.receipt.create({
+      data: {
+        userId: admin.id,
+        orderId: 'ORD-SELF-APPROVE',
+        receiptNumber: '9005',
+        purchaseDate: new Date('2026-01-01'),
+        amount: '75.00',
+        fileUrl: '/uploads/fake.jpg',
+        status: 'PENDING',
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receipt.id}/approve`)
+      .set('Cookie', adminCookie);
+
+    expect(res.status).toBe(403);
+    const unchanged = await prisma.receipt.findUnique({ where: { id: receipt.id } });
+    expect(unchanged?.status).toBe('PENDING');
+  });
 });
 
 describe('POST /api/admin/receipts/:id/reject', () => {
@@ -191,5 +219,28 @@ describe('POST /api/admin/receipts/:id/reject', () => {
       .send({ reason: 'Too late' });
 
     expect(res.status).toBe(409);
+  });
+
+  it('blocks an admin from rejecting a receipt they submitted themselves', async () => {
+    const admin = await createUser({ email: 'selfreject@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'selfreject@test.com');
+    const receipt = await prisma.receipt.create({
+      data: {
+        userId: admin.id,
+        orderId: 'ORD-SELF-REJECT',
+        receiptNumber: '9006',
+        purchaseDate: new Date('2026-01-01'),
+        amount: '75.00',
+        fileUrl: '/uploads/fake.jpg',
+        status: 'PENDING',
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receipt.id}/reject`)
+      .set('Cookie', adminCookie)
+      .send({ reason: 'n/a' });
+
+    expect(res.status).toBe(403);
   });
 });
