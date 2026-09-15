@@ -321,7 +321,9 @@ export interface User {
 
 export interface Voucher {
   id: string;
-  code: string;
+  // null until redeemedAt is set — the server strips it for unredeemed
+  // vouchers, so it's never actually present to read here before then.
+  code: string | null;
   amount: string;
   issuedAt: string;
   expiresAt: string | null;
@@ -2307,6 +2309,34 @@ describe('POST /api/admin/receipts/:id/approve', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('blocks an admin from approving a receipt they submitted themselves', async () => {
+    // requireUser already stops an admin from hitting POST /receipts, so
+    // this seeds the receipt directly via Prisma to exercise the
+    // controller-level guard on its own — the layer that still matters
+    // if a receipt's ownership were ever reassigned some other way.
+    const admin = await createUser({ email: 'selfapprove@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'selfapprove@test.com');
+    const receipt = await prisma.receipt.create({
+      data: {
+        userId: admin.id,
+        orderId: 'ORD-SELF-APPROVE',
+        receiptNumber: '9005',
+        purchaseDate: new Date('2026-01-01'),
+        amount: '75.00',
+        fileUrl: '/uploads/fake.jpg',
+        status: 'PENDING',
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receipt.id}/approve`)
+      .set('Cookie', adminCookie);
+
+    expect(res.status).toBe(403);
+    const unchanged = await prisma.receipt.findUnique({ where: { id: receipt.id } });
+    expect(unchanged?.status).toBe('PENDING');
+  });
 });
 
 describe('POST /api/admin/receipts/:id/reject', () => {
@@ -2334,6 +2364,29 @@ describe('POST /api/admin/receipts/:id/reject', () => {
       .send({ reason: 'Too late' });
 
     expect(res.status).toBe(409);
+  });
+
+  it('blocks an admin from rejecting a receipt they submitted themselves', async () => {
+    const admin = await createUser({ email: 'selfreject@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'selfreject@test.com');
+    const receipt = await prisma.receipt.create({
+      data: {
+        userId: admin.id,
+        orderId: 'ORD-SELF-REJECT',
+        receiptNumber: '9006',
+        purchaseDate: new Date('2026-01-01'),
+        amount: '75.00',
+        fileUrl: '/uploads/fake.jpg',
+        status: 'PENDING',
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receipt.id}/reject`)
+      .set('Cookie', adminCookie)
+      .send({ reason: 'n/a' });
+
+    expect(res.status).toBe(403);
   });
 });
 
@@ -2787,7 +2840,7 @@ FILE: server/src/__tests__/receipts.test.ts
 import request from 'supertest';
 import { createApp } from '../app';
 import { resetDb, disconnectDb } from './helpers/db';
-import { createUser, loginAndGetCookie } from './helpers/auth';
+import { createUser, loginAndGetCookie, loginAdminAndGetCookie } from './helpers/auth';
 import { testFileBuffer, testFileName } from './helpers/testFile';
 
 const app = createApp();
@@ -2829,6 +2882,22 @@ describe('POST /api/receipts', () => {
     expect(res.status).toBe(201);
     expect(res.body.receipt).toMatchObject({ orderId: 'ORD-1', receiptNumber: '1001', status: 'PENDING' });
     expect(res.body.receipt.fileUrl).toMatch(/^\/uploads\//);
+  });
+
+  it('rejects an admin account submitting a receipt', async () => {
+    await createUser({ email: 'submitadmin@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'submitadmin@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', adminCookie)
+      .field('orderId', 'ORD-ADMIN-SELF')
+      .field('receiptNumber', '1099')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '50.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(403);
   });
 
   it('rejects an upload with no file attached', async () => {
@@ -3243,6 +3312,22 @@ async function setupVoucher() {
   return { userCookie, voucherId: approveRes.body.voucher.id as string };
 }
 
+describe('GET /api/vouchers/me', () => {
+  it('hides the code for an unredeemed voucher and reveals it after redemption', async () => {
+    const { userCookie, voucherId } = await setupVoucher();
+
+    const before = await request(app).get('/api/vouchers/me').set('Cookie', userCookie);
+    const beforeVoucher = before.body.vouchers.find((v: { id: string }) => v.id === voucherId);
+    expect(beforeVoucher.code).toBeNull();
+
+    await request(app).post(`/api/vouchers/${voucherId}/redeem`).set('Cookie', userCookie);
+
+    const after = await request(app).get('/api/vouchers/me').set('Cookie', userCookie);
+    const afterVoucher = after.body.vouchers.find((v: { id: string }) => v.id === voucherId);
+    expect(afterVoucher.code).toMatch(/^LP-/);
+  });
+});
+
 describe('POST /api/vouchers/:id/redeem', () => {
   it('redeems an active voucher and stamps redeemedAt', async () => {
     const { userCookie, voucherId } = await setupVoucher();
@@ -3484,6 +3569,17 @@ export async function approveReceipt(req: Request, res: Response) {
     return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
   }
 
+  // Segregation of duties: the account approving a receipt must not be
+  // the account that submitted it — otherwise the one role with the
+  // power to issue vouchers could pay itself out with no independent
+  // check. requireUser on receiptRoutes already stops an admin from
+  // submitting in the first place; this is the second, load-bearing
+  // layer in case that ever changes or a receipt's ownership is
+  // reassigned some other way.
+  if (receipt.userId === adminId) {
+    return res.status(403).json({ error: 'Cannot approve a receipt you submitted yourself' });
+  }
+
   const voucherAmount = calculateVoucherAmount(Number(receipt.amount));
   const expiresAt = calculateExpiryDate();
 
@@ -3561,6 +3657,12 @@ export async function rejectReceipt(req: Request, res: Response) {
 
   if (receipt.status !== 'PENDING') {
     return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
+  }
+
+  // Same segregation-of-duties guard as approveReceipt — kept here too so
+  // self-review isn't just blocked on the "yes" path.
+  if (receipt.userId === adminId) {
+    return res.status(403).json({ error: 'Cannot review a receipt you submitted yourself' });
   }
 
   const updated = await prisma.receipt.update({
@@ -4045,8 +4147,15 @@ export async function listMyVouchers(req: Request, res: Response) {
     prisma.voucher.count({ where }),
   ]);
 
+  // The frontend hides `code` in the table until redemption, but that's
+  // only a rendering choice — the value would otherwise still be sitting
+  // in this JSON response (visible in the network tab regardless of what
+  // the UI shows). Strip it server-side for anything not yet redeemed, so
+  // "redeem to reveal" is an actual guarantee, not just cosmetic.
+  const sanitized = vouchers.map((v) => (v.redeemedAt ? v : { ...v, code: null }));
+
   return res.json({
-    vouchers,
+    vouchers: sanitized,
     pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   });
 }
@@ -4325,6 +4434,21 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+/**
+ * Must run after requireAuth. Rejects with 403 if the authenticated
+ * account is an ADMIN. Receipt/voucher endpoints (submit, list own,
+ * redeem) are meant for USER accounts only — an admin has no business
+ * submitting their own receipts, since that's exactly the account that
+ * later approves them. Blocking it here, not just hiding the nav links
+ * in the UI, is what actually prevents an admin from self-approving.
+ */
+export function requireUser(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role !== 'USER') {
+    return res.status(403).json({ error: 'This action is only available to user accounts' });
+  }
+  next();
+}
+
 
 ================================================================================
 FILE: server/src/routes/adminRoutes.ts
@@ -4373,7 +4497,7 @@ export default router;
 FILE: server/src/routes/receiptRoutes.ts
 ================================================================================
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireUser } from '../middleware/auth';
 import { receiptUpload } from '../lib/upload';
 import { createReceipt, listMyReceipts, getMyReceiptStats, getMyReceiptById } from '../controllers/receiptController';
 import { asyncHandler } from '../lib/asyncHandler';
@@ -4381,6 +4505,9 @@ import { asyncHandler } from '../lib/asyncHandler';
 const router = Router();
 
 router.use(requireAuth);
+// Defense in depth: an admin account should never hold a receipt of its
+// own to approve — see the matching self-review guard in adminController.
+router.use(requireUser);
 
 router.post('/', receiptUpload.single('file'), asyncHandler(createReceipt));
 router.get('/me', asyncHandler(listMyReceipts));
@@ -4394,13 +4521,16 @@ export default router;
 FILE: server/src/routes/voucherRoutes.ts
 ================================================================================
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireUser } from '../middleware/auth';
 import { listMyVouchers, getMyVoucherStats, redeemVoucher } from '../controllers/voucherController';
 import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 
 router.use(requireAuth);
+// Defense in depth — see receiptRoutes.ts: vouchers only exist because a
+// receipt was approved, and admins shouldn't be holding receipts at all.
+router.use(requireUser);
 router.get('/me', asyncHandler(listMyVouchers));
 router.get('/me/stats', asyncHandler(getMyVoucherStats));
 router.post('/:id/redeem', asyncHandler(redeemVoucher));
