@@ -41,7 +41,9 @@ export interface User {
 
 export interface Voucher {
   id: string;
-  code: string;
+  // null until redeemedAt is set — the server strips it for unredeemed
+  // vouchers, so it's never actually present to read here before then.
+  code: string | null;
   amount: string;
   issuedAt: string;
   expiresAt: string | null;
