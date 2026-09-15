@@ -1,0 +1,4425 @@
+===== LOYALTY PROGRAM — FULL SOURCE (client/src + server/src) =====
+Generated 2026-09-15
+
+
+================================================================================
+FILE: client/src/App.css
+================================================================================
+.counter {
+  font-size: 16px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+  margin-bottom: 24px;
+
+  &:hover {
+    border-color: var(--accent-border);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.hero {
+  position: relative;
+
+  .base,
+  .framework,
+  .vite {
+    inset-inline: 0;
+    margin: 0 auto;
+  }
+
+  .base {
+    width: 170px;
+    position: relative;
+    z-index: 0;
+  }
+
+  .framework,
+  .vite {
+    position: absolute;
+  }
+
+  .framework {
+    z-index: 1;
+    top: 34px;
+    height: 28px;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
+      scale(1.4);
+  }
+
+  .vite {
+    z-index: 0;
+    top: 107px;
+    height: 26px;
+    width: auto;
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
+      scale(0.8);
+  }
+}
+
+#center {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  place-content: center;
+  place-items: center;
+  flex-grow: 1;
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px 24px;
+    gap: 18px;
+  }
+}
+
+#next-steps {
+  display: flex;
+  border-top: 1px solid var(--border);
+  text-align: left;
+
+  & > div {
+    flex: 1 1 0;
+    padding: 32px;
+    @media (max-width: 1024px) {
+      padding: 24px 20px;
+    }
+  }
+
+  .icon {
+    margin-bottom: 16px;
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+#docs {
+  border-right: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+#next-steps ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  margin: 32px 0 0;
+
+  .logo {
+    height: 18px;
+  }
+
+  a {
+    color: var(--text-h);
+    font-size: 16px;
+    border-radius: 6px;
+    background: var(--social-bg);
+    display: flex;
+    padding: 6px 12px;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: box-shadow 0.3s;
+
+    &:hover {
+      box-shadow: var(--shadow);
+    }
+    .button-icon {
+      height: 18px;
+      width: 18px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    li {
+      flex: 1 1 calc(50% - 8px);
+    }
+
+    a {
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+  }
+}
+
+#spacer {
+  height: 88px;
+  border-top: 1px solid var(--border);
+  @media (max-width: 1024px) {
+    height: 48px;
+  }
+}
+
+.ticks {
+  position: relative;
+  width: 100%;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4.5px;
+    border: 5px solid transparent;
+  }
+
+  &::before {
+    left: 0;
+    border-left-color: var(--border);
+  }
+  &::after {
+    right: 0;
+    border-right-color: var(--border);
+  }
+}
+
+
+================================================================================
+FILE: client/src/App.tsx
+================================================================================
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { UserDashboard } from './pages/UserDashboard';
+import { UploadPage } from './pages/UploadPage';
+import { VoucherPage } from './pages/VoucherPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminLoginPage } from './pages/AdminLoginPage';
+
+function HomeRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="page-loading">Loading...</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  return user.role === 'ADMIN' ? <Navigate to="/admin" replace /> : <UserDashboard />;
+}
+
+// /admin own page, only accessible to admin users
+function AdminEntry() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="page-loading">Loading...</div>;
+  if (!user) return <AdminLoginPage />;
+  if (user.role !== 'ADMIN') return <Navigate to="/" replace />;
+  return <AdminDashboard />;
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <ToastProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <HomeRedirect />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/upload"
+              element={
+                <ProtectedRoute>
+                  <UploadPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vouchers"
+              element={
+                <ProtectedRoute>
+                  <VoucherPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/admin" element={<AdminEntry />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ToastProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+
+
+================================================================================
+FILE: client/src/api/client.ts
+================================================================================
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+export const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true, // required to send/receive the httpOnly JWT cookie
+});
+
+// user is no longer logged in so it can redirect to /login.
+export const SESSION_EXPIRED_EVENT = 'session-expired';
+
+// Requests where a 401 is an *expected*, self-handled outcome (wrong
+// login credentials, or the initial /auth/me check before any login has
+// happened) rather than a genuinely expired session — these should NOT
+// trigger the global redirect.
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/admin-login', '/auth/register', '/auth/me', '/auth/logout'];
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const url: string = error?.config?.url || '';
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((path) => url.includes(path));
+
+    if (status === 401 && !isAuthEndpoint) {
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export interface User {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: 'USER' | 'ADMIN';
+}
+
+export interface Voucher {
+  id: string;
+  code: string;
+  amount: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  redeemedAt: string | null;
+  receipt?: { orderId: string; amount: string };
+}
+
+export interface Receipt {
+  id: string;
+  orderId: string;
+  receiptNumber: string;
+  purchaseDate: string;
+  amount: string;
+  fileUrl: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  rejectionReason: string | null;
+  user?: { id: string; name: string; email: string | null; phone: string | null };
+  voucher?: Voucher | null;
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export function apiErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err) && err.response?.data?.error) {
+    return err.response.data.error as string;
+  }
+  return 'Something went wrong. Please try again.';
+}
+
+
+================================================================================
+FILE: client/src/components/Header.tsx
+================================================================================
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+export function Header() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    const wasAdmin = user?.role === 'ADMIN';
+    await logout();
+    navigate(wasAdmin ? '/admin' : '/login');
+  }
+
+  return (
+    <header className="app-header">
+      <span className="app-title">Loyalty Program</span>
+      {user && (
+        <nav className="header-nav">
+          <NavLink
+            to={user.role === 'ADMIN' ? '/admin' : '/'}
+            end
+            className={({ isActive }) => (isActive ? 'nav-active' : undefined)}
+          >
+            Dashboard
+          </NavLink>
+          {user.role === 'USER' && (
+            <NavLink to="/upload" end className={({ isActive }) => (isActive ? 'nav-active' : undefined)}>
+              Upload
+            </NavLink>
+          )}
+          {user.role === 'USER' && (
+            <NavLink to="/vouchers" end className={({ isActive }) => (isActive ? 'nav-active' : undefined)}>
+              My Vouchers
+            </NavLink>
+          )}
+          <NavLink to="/settings" end className={({ isActive }) => (isActive ? 'nav-active' : undefined)}>
+            Settings
+          </NavLink>
+        </nav>
+      )}
+      {user && (
+        <div className="header-right">
+          <span>
+            {user.name} ({user.role})
+          </span>
+          <button onClick={handleLogout}>Log out</button>
+        </div>
+      )}
+    </header>
+  );
+}
+
+
+================================================================================
+FILE: client/src/components/ProtectedRoute.tsx
+================================================================================
+import { Navigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { useAuth } from '../context/AuthContext';
+
+export function ProtectedRoute({
+  children,
+  requireAdmin = false,
+}: {
+  children: ReactNode;
+  requireAdmin?: boolean;
+}) {
+  const { user, loading } = useAuth();
+
+  if (loading) return <div className="page-loading">Loading...</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (requireAdmin && user.role !== 'ADMIN') return <Navigate to="/" replace />;
+
+  return <>{children}</>;
+}
+
+
+================================================================================
+FILE: client/src/context/AuthContext.tsx
+================================================================================
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { api, SESSION_EXPIRED_EVENT, type User } from '../api/client';
+
+interface AuthContextValue {
+  user: User | null;
+  loading: boolean;
+  sessionMessage: string | null;
+  clearSessionMessage: () => void;
+  login: (identifier: string, password: string) => Promise<User>;
+  adminLogin: (identifier: string, password: string) => Promise<User>;
+  register: (data: { name: string; email?: string; phone?: string; password: string }) => Promise<void>;
+  updateProfile: (data: { name: string; email?: string; phone?: string }) => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    // On first load, check if a valid session cookie already exists.
+    api
+      .get('/auth/me')
+      .then((res) => setUser(res.data.user))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    // Fired by the axios interceptor in api/client.ts whenever an
+    // authenticated request comes back 401 (expired/invalid session
+    // cookie). Clearing `user` here sends the app back to /login via
+    // ProtectedRoute, instead of leaving pages stuck showing a raw
+    // "Not authenticated" error banner.
+    function handleSessionExpired() {
+      setUser((current) => {
+        if (current) {
+          setSessionMessage('Your session has expired. Please log in again.');
+        }
+        return null;
+      });
+    }
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
+
+  // User login — same shape as adminLogin below, different endpoint.
+  async function login(identifier: string, password: string) {
+    const res = await api.post('/auth/login', { identifier, password });
+    setUser(res.data.user);
+    setSessionMessage(null);
+    return res.data.user as User;
+  }
+
+  // Admin login — hits a separate endpoint, not a shared one with a role check.
+  async function adminLogin(identifier: string, password: string) {
+    const res = await api.post('/auth/admin-login', { identifier, password });
+    setUser(res.data.user);
+    setSessionMessage(null);
+    return res.data.user as User;
+  }
+
+  // Registration also logs the user straight in (server sets the cookie).
+  async function register(data: { name: string; email?: string; phone?: string; password: string }) {
+    const res = await api.post('/auth/register', data);
+    setUser(res.data.user);
+    setSessionMessage(null);
+  }
+
+  // Settings page — update name/email/phone.
+  async function updateProfile(data: { name: string; email?: string; phone?: string }) {
+    const res = await api.patch('/auth/me', data);
+    setUser(res.data.user);
+  }
+
+  // Clears the cookie server-side, then local state.
+  async function logout() {
+    await api.post('/auth/logout');
+    setUser(null);
+  }
+
+  function clearSessionMessage() {
+    setSessionMessage(null);
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{ user, loading, sessionMessage, clearSessionMessage, login, adminLogin, register, updateProfile, logout }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
+}
+
+
+================================================================================
+FILE: client/src/context/ToastContext.tsx
+================================================================================
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+
+interface ToastItem {
+  id: number;
+  message: string;
+  type: 'success' | 'error';
+}
+
+interface ToastContextValue {
+  showToast: (message: string, type?: 'success' | 'error') => void;
+}
+
+const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+
+let nextToastId = 1;
+const TOAST_DURATION_MS = 3000;
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    const id = nextToastId++;
+    setToasts((current) => [...current, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((current) => current.filter((t) => t.id !== id));
+    }, TOAST_DURATION_MS);
+  }, []);
+
+  return (
+    <ToastContext.Provider value={{ showToast }}>
+      {children}
+      <div className="toast-container" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.type}`}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast() {
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error('useToast must be used within a ToastProvider');
+  return ctx;
+}
+
+
+================================================================================
+FILE: client/src/index.css
+================================================================================
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: #f5f6f8;
+  color: #1a1a1a;
+}
+
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #666;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: #1a1a2e;
+  color: white;
+}
+
+.app-title { font-weight: 600; font-size: 1.1rem; }
+
+.header-nav { display: flex; align-items: center; gap: 1.25rem; }
+
+.header-nav a {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.header-nav a:hover { color: white; text-decoration: underline; }
+
+.header-nav a.nav-active {
+  color: white;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  text-decoration: none;
+}
+
+.header-right { display: flex; align-items: center; gap: 1rem; font-size: 0.9rem; }
+
+.header-right button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.container { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.contact-tabs {
+  display: flex;
+  gap: 1.25rem;
+  border-bottom: 1px solid #e5e5e5;
+  margin-bottom: -0.3rem;
+}
+
+.contact-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #888;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0 0 0.5rem 0;
+  cursor: pointer;
+}
+
+.contact-tab-active {
+  color: #1a1a1a;
+  border-bottom-color: #f5820c;
+}
+
+.auth-form {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.upload-form { display: flex; flex-direction: column; gap: 0.9rem; max-width: 400px; }
+
+label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; color: #444; }
+
+input {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+button {
+  background: #4a4ae8;
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-danger { background: #d1435b; }
+
+.form-error { color: #d1435b; font-size: 0.9rem; margin: 0; }
+
+.form-notice {
+  color: #916500;
+  background: #fff3cd;
+  padding: 0.5rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  z-index: 1000;
+}
+
+.toast {
+  min-width: 240px;
+  max-width: 360px;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast-success { background: #1e6b34; }
+.toast-error { background: #93202f; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.empty-state { color: #888; font-size: 0.9rem; }
+
+/* No fixed height/inner scroll here — every list endpoint already caps
+   pagination at 5 rows/page, so the table (and the Previous/Next controls
+   below it) always fits its content; the page itself scrolls if needed
+   instead of a clipped scrollbox inside the card. */
+.table-area { overflow-x: auto; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-tile {
+  background: white;
+  border-radius: 8px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stat-value { font-size: 1.8rem; font-weight: 700; color: #1a1a2e; }
+.stat-label { font-size: 0.85rem; color: #666; }
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #1a1a2e;
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+
+th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #eee; }
+
+.badge {
+  padding: 0.2rem 0.55rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-pending { background: #fff3cd; color: #916500; }
+.badge-approved { background: #d4edda; color: #1e6b34; }
+.badge-rejected { background: #f8d7da; color: #93202f; }
+
+.badge-voucher-active { background: #d4edda; color: #1e6b34; }
+.badge-voucher-redeemed { background: #e2e3e5; color: #495057; }
+.badge-voucher-expired { background: #f8d7da; color: #93202f; }
+
+.voucher-code { font-family: monospace; font-weight: 600; }
+
+.voucher-code-hidden {
+  font-family: monospace;
+  font-weight: 400;
+  font-style: italic;
+  color: #999;
+  letter-spacing: 0.05em;
+}
+
+.muted { color: #888; font-size: 0.8rem; }
+
+.tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+
+.tab {
+  background: white;
+  color: #444;
+  border: 1px solid #ddd;
+}
+
+.tab-active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+
+.actions { display: flex; gap: 0.5rem; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.pagination button {
+  background: white;
+  color: #444;
+  border: 1px solid #ddd;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+================================================================================
+FILE: client/src/main.tsx
+================================================================================
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+================================================================================
+FILE: client/src/pages/AdminDashboard.tsx
+================================================================================
+import { useEffect, useState } from 'react';
+import { api, apiErrorMessage, type Receipt, type Pagination } from '../api/client';
+import { Header } from '../components/Header';
+import { useToast } from '../context/ToastContext';
+
+const TABS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const;
+type Tab = (typeof TABS)[number];
+
+const PAGE_SIZE = 5;
+
+interface Stats {
+  pendingReceipts: number;
+  approvedReceipts: number;
+  rejectedReceipts: number;
+  totalReceipts: number;
+  vouchersIssued: number;
+}
+
+export function AdminDashboard() {
+  const { showToast } = useToast();
+  const [tab, setTab] = useState<Tab>('ALL');
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [page, setPage] = useState(1);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function loadStats() {
+    try {
+      const res = await api.get('/admin/stats');
+      setStats(res.data.stats);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    }
+  }
+
+  async function loadReceipts(t: Tab, p: number) {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/admin/receipts', {
+        params: { ...(t === 'ALL' ? {} : { status: t }), page: p, limit: PAGE_SIZE },
+      });
+      setReceipts(res.data.receipts);
+      setPagination(res.data.pagination);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  // Changing tabs starts back at page 1 — the old page number rarely
+  // makes sense against a different, differently-sized filtered list.
+  useEffect(() => {
+    setPage(1);
+  }, [tab]);
+
+  useEffect(() => {
+    loadReceipts(tab, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, page]);
+
+  async function refreshAfterAction() {
+    await Promise.all([loadReceipts(tab, page), loadStats()]);
+  }
+
+  async function handleApprove(id: string) {
+    setActionError('');
+    setBusyId(id);
+    try {
+      await api.post(`/admin/receipts/${id}/approve`);
+      await refreshAfterAction();
+      showToast('Receipt approved successfully');
+    } catch (err) {
+      setActionError(apiErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleReject(id: string) {
+    const reason = window.prompt('Reason for rejection (optional):') ?? undefined;
+    setActionError('');
+    setBusyId(id);
+    try {
+      await api.post(`/admin/receipts/${id}/reject`, reason ? { reason } : {});
+      await refreshAfterAction();
+      showToast('Receipt rejected successfully');
+    } catch (err) {
+      setActionError(apiErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    const confirmed = window.confirm('Are you sure you want to delete this receipt? This cannot be undone.');
+    if (!confirmed) return;
+
+    setActionError('');
+    setBusyId(id);
+    try {
+      await api.delete(`/admin/receipts/${id}`);
+      // Deleting the last row on a page (other than page 1) would leave an
+      // empty page behind — step back a page when that happens instead of
+      // showing a blank table with valid Previous/Next controls around it.
+      // Changing `page` re-triggers the [tab, page] effect that reloads the
+      // list, so only the stats need refreshing separately in that branch.
+      if (receipts.length === 1 && page > 1) {
+        setPage((p) => p - 1);
+        await loadStats();
+      } else {
+        await refreshAfterAction();
+      }
+      showToast('Receipt deleted');
+    } catch (err) {
+      setActionError(apiErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const tabCounts: Record<Tab, number> = {
+    ALL: stats?.totalReceipts ?? 0,
+    PENDING: stats?.pendingReceipts ?? 0,
+    APPROVED: stats?.approvedReceipts ?? 0,
+    REJECTED: stats?.rejectedReceipts ?? 0,
+  };
+
+  return (
+    <div className="page">
+      <Header />
+      <main className="container">
+        <h1>Admin Dashboard</h1>
+
+        <section className="stats-grid">
+          <div className="stat-tile">
+            <span className="stat-value">{stats?.pendingReceipts ?? '-'}</span>
+            <span className="stat-label">Pending receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{stats?.approvedReceipts ?? '-'}</span>
+            <span className="stat-label">Approved receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{stats?.rejectedReceipts ?? '-'}</span>
+            <span className="stat-label">Rejected receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{stats?.vouchersIssued ?? '-'}</span>
+            <span className="stat-label">Vouchers issued</span>
+          </div>
+        </section>
+
+        <div className="tabs">
+          {TABS.map((t) => (
+            <button key={t} className={t === tab ? 'tab tab-active' : 'tab'} onClick={() => setTab(t)}>
+              {t.charAt(0) + t.slice(1).toLowerCase()} ({tabCounts[t]})
+            </button>
+          ))}
+        </div>
+
+        <div className="table-area">
+          {actionError && <p className="form-error">{actionError}</p>}
+          {error && <p className="form-error">{error}</p>}
+          {loading && <p>Loading...</p>}
+          {!loading && receipts.length === 0 && (
+            <p className="empty-state">No {tab === 'ALL' ? '' : tab.toLowerCase() + ' '}receipts.</p>
+          )}
+
+          {receipts.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>No.</th>
+                  <th>Order ID</th>
+                  <th>Purchase Date</th>
+                  <th>Amount</th>
+                  <th>Receipt</th>
+                  <th>Submitted</th>
+                  <th>Status</th>
+                  <th>Details</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {receipts.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      {r.user?.name}
+                      <br />
+                      <span className="muted">{r.user?.email ?? r.user?.phone}</span>
+                    </td>
+                    <td>{r.orderId}</td>
+                    <td>{r.receiptNumber}</td>
+                    <td>{new Date(r.purchaseDate).toLocaleDateString()}</td>
+                    <td>RM {Number(r.amount).toFixed(2)}</td>
+                    <td>
+                      <a href={`http://localhost:5000${r.fileUrl}`} target="_blank" rel="noreferrer">
+                        View file
+                      </a>
+                    </td>
+                    <td>{new Date(r.submittedAt).toLocaleDateString()}</td>
+                    <td>
+                      <span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span>
+                    </td>
+                    <td>
+                      {r.status === 'PENDING' && (
+                        <span className="actions">
+                          <button onClick={() => handleApprove(r.id)} disabled={busyId === r.id}>
+                            Approve
+                          </button>
+                          <button onClick={() => handleReject(r.id)} disabled={busyId === r.id} className="btn-danger">
+                            Reject
+                          </button>
+                        </span>
+                      )}
+                      {r.status === 'REJECTED' && (r.rejectionReason ?? '-')}
+                      {r.status === 'APPROVED' && (
+                        <span className="voucher-code">{r.voucher?.code ?? '-'}</span>
+                      )}
+                    </td>
+                    <td>
+                      {r.voucher?.redeemedAt ? (
+                        <span className="muted" title="Its voucher has already been redeemed">
+                          -
+                        </span>
+                      ) : (
+                        <button onClick={() => handleDelete(r.id)} disabled={busyId === r.id} className="btn-danger">
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="pagination">
+              <button onClick={() => setPage((p) => p - 1)} disabled={loading || page <= 1}>
+                Previous
+              </button>
+              <span>
+                Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={loading || page >= pagination.totalPages}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: client/src/pages/AdminLoginPage.tsx
+================================================================================
+import { useState, type FormEvent } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { apiErrorMessage } from '../api/client';
+
+export function AdminLoginPage() {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { adminLogin } = useAuth();
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      // Hits POST /api/auth/admin-login, a separate endpoint from the
+      // regular user login. The server only ever issues a session there
+      // for an ADMIN account — a regular user's correct credentials are
+      // rejected with the same generic "Invalid credentials" message as
+      // an unknown account, so there's no way to tell from the response
+      // whether the account exists but is the wrong kind. AuthContext's
+      // user state is set on success, and App.tsx's /admin route
+      // re-renders into AdminDashboard automatically.
+      await adminLogin(identifier, password);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <form onSubmit={handleSubmit} className="auth-form">
+        <h1>Admin login</h1>
+        {error && <p className="form-error">{error}</p>}
+        <label>
+          Email or phone
+          <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} required />
+        </label>
+        <label>
+          Password
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </label>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Logging in...' : 'Log in'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: client/src/pages/LoginPage.tsx
+================================================================================
+import { useState, type FormEvent } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { apiErrorMessage } from '../api/client';
+
+export function LoginPage() {
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { login, sessionMessage } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      await login(identifier, password);
+      navigate('/');
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <form onSubmit={handleSubmit} className="auth-form">
+        <h1>Log in</h1>
+        {sessionMessage && <p className="form-notice">{sessionMessage}</p>}
+        {error && <p className="form-error">{error}</p>}
+        <label>
+          Email or phone
+          <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} required />
+        </label>
+        <label>
+          Password
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </label>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Logging in...' : 'Log in'}
+        </button>
+        <p>
+          No account? <Link to="/register">Register</Link>
+        </p>
+      </form>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: client/src/pages/RegisterPage.tsx
+================================================================================
+import { useState, type FormEvent } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { apiErrorMessage } from '../api/client';
+
+type ContactMethod = 'email' | 'phone';
+
+export function RegisterPage() {
+  const [name, setName] = useState('');
+  const [contactMethod, setContactMethod] = useState<ContactMethod>('email');
+  const [contact, setContact] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+    try {
+      await register({
+        name,
+        password,
+        email: contactMethod === 'email' ? contact : undefined,
+        phone: contactMethod === 'phone' ? contact : undefined,
+      });
+      navigate('/');
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleMethodChange(method: ContactMethod) {
+    setContactMethod(method);
+    setContact(''); // avoid submitting a phone number into the email field or vice versa
+  }
+
+  return (
+    <div className="auth-page">
+      <form onSubmit={handleSubmit} className="auth-form">
+        <h1>Register</h1>
+        {error && <p className="form-error">{error}</p>}
+        <label>
+          Name
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+
+        <div className="contact-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={contactMethod === 'email'}
+            className={contactMethod === 'email' ? 'contact-tab contact-tab-active' : 'contact-tab'}
+            onClick={() => handleMethodChange('email')}
+          >
+            Email
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={contactMethod === 'phone'}
+            className={contactMethod === 'phone' ? 'contact-tab contact-tab-active' : 'contact-tab'}
+            onClick={() => handleMethodChange('phone')}
+          >
+            Mobile Number
+          </button>
+        </div>
+
+        <input
+          type={contactMethod === 'email' ? 'email' : 'tel'}
+          value={contact}
+          onChange={(e) => {
+            const value = e.target.value;
+            // Phone numbers are digits only: no '+', spaces, or letters,
+            // starting with 0 or 60 (e.g. 0123456789 / 60123456789), capped
+            // at 13 digits. Strip anything else as the user types.
+            setContact(contactMethod === 'phone' ? value.replace(/\D/g, '').slice(0, 13) : value);
+          }}
+          placeholder={contactMethod === 'email' ? 'Email' : 'e.g. 60123456789 or 0123456789'}
+          aria-label={contactMethod === 'email' ? 'Email' : 'Mobile number'}
+          inputMode={contactMethod === 'phone' ? 'numeric' : undefined}
+          pattern={contactMethod === 'phone' ? '(60|0)[0-9]{7,11}' : undefined}
+          title={contactMethod === 'phone' ? 'Digits only, starting with 0 or 60, e.g. 0123456789 or 60123456789' : undefined}
+          required
+        />
+
+        <label>
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            required
+          />
+        </label>
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Creating account...' : 'Register'}
+        </button>
+        <p>
+          Already have an account? <Link to="/login">Log in</Link>
+        </p>
+      </form>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: client/src/pages/SettingsPage.tsx
+================================================================================
+import { useState, type FormEvent } from 'react';
+import { api, apiErrorMessage } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { Header } from '../components/Header';
+import { useToast } from '../context/ToastContext';
+
+export function SettingsPage() {
+  const { user, updateProfile } = useAuth();
+  const { showToast } = useToast();
+  const [name, setName] = useState(user?.name ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [phone, setPhone] = useState(user?.phone ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSuccess(false);
+
+    if (!email.trim() && !phone.trim()) {
+      setError('Please provide at least an email or a phone number');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateProfile({
+        name: name.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+      });
+      setSuccess(true);
+      showToast('Profile updated successfully');
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handlePasswordSubmit(e: FormEvent) {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('New password and confirmation do not match');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await api.post('/auth/change-password', { currentPassword, newPassword });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordSuccess(true);
+      showToast('Password changed successfully');
+    } catch (err) {
+      setPasswordError(apiErrorMessage(err));
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  return (
+    <div className="page">
+      <Header />
+      <main className="container">
+        <h1>Settings</h1>
+
+        <section className="card">
+          <h2>Profile information</h2>
+          <form onSubmit={handleSubmit} className="upload-form">
+            {error && <p className="form-error">{error}</p>}
+            {success && <p className="form-notice">Profile updated.</p>}
+            <label>
+              Name
+              <input value={name} onChange={(e) => { setName(e.target.value); setSuccess(false); }} required />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setSuccess(false); }}
+                placeholder="you@example.com"
+              />
+            </label>
+            <label>
+              Phone number
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => {
+                  // Digits only: no '+', spaces, or letters, starting with 0 or
+                  // 60 (e.g. 0123456789 / 60123456789), capped at 13 digits.
+                  setPhone(e.target.value.replace(/\D/g, '').slice(0, 13));
+                  setSuccess(false);
+                }}
+                placeholder="60123456789 or 0123456789"
+                inputMode="numeric"
+                pattern="(60|0)[0-9]{7,11}"
+                title="Digits only, starting with 0 or 60, e.g. 0123456789 or 60123456789"
+              />
+            </label>
+            <button type="submit" disabled={saving}>
+              {saving ? 'Saving...' : 'Save changes'}
+            </button>
+          </form>
+        </section>
+
+        <section className="card">
+          <h2>Change password</h2>
+          <form onSubmit={handlePasswordSubmit} className="upload-form">
+            {passwordError && <p className="form-error">{passwordError}</p>}
+            {passwordSuccess && <p className="form-notice">Password changed.</p>}
+            <label>
+              Current password
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => { setCurrentPassword(e.target.value); setPasswordSuccess(false); }}
+                required
+              />
+            </label>
+            <label>
+              New password
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => { setNewPassword(e.target.value); setPasswordSuccess(false); }}
+                minLength={8}
+                required
+              />
+            </label>
+            <label>
+              Confirm new password
+              <input
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => { setConfirmNewPassword(e.target.value); setPasswordSuccess(false); }}
+                minLength={8}
+                required
+              />
+            </label>
+            <button type="submit" disabled={changingPassword}>
+              {changingPassword ? 'Changing...' : 'Change password'}
+            </button>
+          </form>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: client/src/pages/UploadPage.tsx
+================================================================================
+import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api, apiErrorMessage } from '../api/client';
+import { Header } from '../components/Header';
+import { useToast } from '../context/ToastContext';
+
+const todayStr = new Date().toISOString().slice(0, 10);
+
+export function UploadPage() {
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [orderId, setOrderId] = useState('');
+  const [receiptNumber, setReceiptNumber] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState('');
+  const [amount, setAmount] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  async function handleUpload(e: FormEvent) {
+    e.preventDefault();
+    setUploadError('');
+    setUploadSuccess(false);
+    if (!file) {
+      setUploadError('Please choose a receipt file');
+      return;
+    }
+    if (purchaseDate && purchaseDate > todayStr) {
+      setUploadError('Purchase date cannot be in the future');
+      return;
+    }
+    if (/\s/.test(orderId)) {
+      setUploadError('No. cannot contain spaces');
+      return;
+    }
+    if (!/^\d{4}$/.test(receiptNumber)) {
+      setUploadError('Order ID must be a 4 digit number');
+      return;
+    }
+    if (Number(amount) < 10) {
+      setUploadError('Amount must be at least RM 10.00');
+      return;
+    }
+    if (Number(amount) > 2000) {
+      setUploadError('Amount cannot exceed RM 2000');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('orderId', orderId);
+    formData.append('receiptNumber', receiptNumber);
+    formData.append('purchaseDate', purchaseDate);
+    formData.append('amount', amount);
+    formData.append('file', file);
+
+    setUploading(true);
+    try {
+      await api.post('/receipts', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setOrderId('');
+      setReceiptNumber('');
+      setPurchaseDate('');
+      setAmount('');
+      setFile(null);
+      (document.getElementById('receipt-file') as HTMLInputElement).value = '';
+      setUploadSuccess(true);
+      showToast('Receipt submitted successfully');
+    } catch (err) {
+      setUploadError(apiErrorMessage(err));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="page">
+      <Header />
+      <main className="container">
+        <h1>Upload a receipt</h1>
+
+        <section className="card">
+          <form onSubmit={handleUpload} className="upload-form">
+            {uploadError && <p className="form-error">{uploadError}</p>}
+            {uploadSuccess && (
+              <p className="form-notice">
+                Receipt submitted — it's now pending review. See it on your{' '}
+                <button type="button" className="link-button" onClick={() => navigate('/')}>
+                  dashboard
+                </button>
+                .
+              </p>
+            )}
+            <label>
+              No.
+              <input
+                value={orderId}
+                onChange={(e) => { setOrderId(e.target.value); setUploadSuccess(false); }}
+                pattern="\S+"
+                title="No. cannot contain spaces"
+                required
+              />
+            </label>
+            <label>
+              Order ID
+              <input
+                value={receiptNumber}
+                onChange={(e) => {
+                  // Strip anything that isn't a digit as the user types,
+                  // rather than only rejecting on submit — keeps the
+                  // field itself always a valid shape in progress.
+                  setReceiptNumber(e.target.value.replace(/\D/g, '').slice(0, 4));
+                  setUploadSuccess(false);
+                }}
+                inputMode="numeric"
+                pattern="\d{4}"
+                maxLength={4}
+                title="Order ID must be a 4 digit number"
+                required
+              />
+            </label>
+            <label>
+              Purchase date
+              <input
+                type="date"
+                value={purchaseDate}
+                max={todayStr}
+                onChange={(e) => { setPurchaseDate(e.target.value); setUploadSuccess(false); }}
+                required
+              />
+            </label>
+            <label>
+              Amount (RM)
+              <input
+                type="number"
+                step="0.01"
+                min="10"
+                max="2000"
+                value={amount}
+                onChange={(e) => { setAmount(e.target.value); setUploadSuccess(false); }}
+                required
+              />
+            </label>
+            <label>
+              Receipt file (JPEG/PNG/WEBP/PDF, max 5MB)
+              <input
+                id="receipt-file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => { setFile(e.target.files?.[0] ?? null); setUploadSuccess(false); }}
+                required
+              />
+            </label>
+            <button type="submit" disabled={uploading}>
+              {uploading ? 'Uploading...' : 'Submit receipt'}
+            </button>
+          </form>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: client/src/pages/UserDashboard.tsx
+================================================================================
+import { useEffect, useState } from 'react';
+import { api, apiErrorMessage, type Receipt, type Pagination } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { Header } from '../components/Header';
+
+const TABS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const;
+type Tab = (typeof TABS)[number];
+
+const PAGE_SIZE = 5;
+
+interface ReceiptStats {
+  pendingReceipts: number;
+  approvedReceipts: number;
+  rejectedReceipts: number;
+  totalReceipts: number;
+}
+
+interface VoucherStats {
+  availableVouchers: number;
+  redeemedVouchers: number;
+  expiredVouchers: number;
+  totalVouchers: number;
+}
+
+export function UserDashboard() {
+  const { user } = useAuth();
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [page, setPage] = useState(1);
+  const [receiptStats, setReceiptStats] = useState<ReceiptStats | null>(null);
+  const [voucherStats, setVoucherStats] = useState<VoucherStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [receiptFilter, setReceiptFilter] = useState<Tab>('ALL');
+
+  async function loadStats() {
+    try {
+      const [receiptStatsRes, voucherStatsRes] = await Promise.all([
+        api.get('/receipts/me/stats'),
+        api.get('/vouchers/me/stats'),
+      ]);
+      setReceiptStats(receiptStatsRes.data.stats);
+      setVoucherStats(voucherStatsRes.data.stats);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    }
+  }
+
+  async function loadReceipts(t: Tab, p: number) {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/receipts/me', {
+        params: { ...(t === 'ALL' ? {} : { status: t }), page: p, limit: PAGE_SIZE },
+      });
+      setReceipts(res.data.receipts);
+      setPagination(res.data.pagination);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  // Changing tabs starts back at page 1 — the old page number rarely
+  // makes sense against a different, differently-sized filtered list.
+  useEffect(() => {
+    setPage(1);
+  }, [receiptFilter]);
+
+  useEffect(() => {
+    loadReceipts(receiptFilter, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receiptFilter, page]);
+
+  const receiptCounts: Record<Tab, number> = {
+    ALL: receiptStats?.totalReceipts ?? 0,
+    PENDING: receiptStats?.pendingReceipts ?? 0,
+    APPROVED: receiptStats?.approvedReceipts ?? 0,
+    REJECTED: receiptStats?.rejectedReceipts ?? 0,
+  };
+
+  return (
+    <div className="page">
+      <Header />
+      <main className="container">
+        <h1>Welcome, {user?.name}</h1>
+
+        <section className="stats-grid">
+          <div className="stat-tile">
+            <span className="stat-value">{receiptStats?.pendingReceipts ?? '-'}</span>
+            <span className="stat-label">Pending receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{receiptStats?.approvedReceipts ?? '-'}</span>
+            <span className="stat-label">Approved receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{receiptStats?.rejectedReceipts ?? '-'}</span>
+            <span className="stat-label">Rejected receipts</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-value">{voucherStats?.availableVouchers ?? '-'}</span>
+            <span className="stat-label">Available vouchers</span>
+          </div>
+        </section>
+
+        <section className="card">
+          <h2>My receipts</h2>
+          <div className="tabs">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                className={t === receiptFilter ? 'tab tab-active' : 'tab'}
+                onClick={() => setReceiptFilter(t)}
+              >
+                {t.charAt(0) + t.slice(1).toLowerCase()} ({receiptCounts[t]})
+              </button>
+            ))}
+          </div>
+          <div className="table-area">
+            {loading && <p>Loading...</p>}
+            {error && <p className="form-error">{error}</p>}
+            {!loading && receipts.length === 0 && (
+              <p className="empty-state">
+                No {receiptFilter === 'ALL' ? '' : receiptFilter.toLowerCase() + ' '}receipts
+                {receiptFilter === 'ALL' ? ' submitted yet' : ''}.
+              </p>
+            )}
+            {receipts.length > 0 && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>No.</th>
+                    <th>Order ID</th>
+                    <th>Purchase Date</th>
+                    <th>Amount</th>
+                    <th>Receipt</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {receipts.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.orderId}</td>
+                      <td>{r.receiptNumber}</td>
+                      <td>{new Date(r.purchaseDate).toLocaleDateString()}</td>
+                      <td>RM {Number(r.amount).toFixed(2)}</td>
+                      <td>
+                        <a href={`http://localhost:5000${r.fileUrl}`} target="_blank" rel="noreferrer">
+                          View file
+                        </a>
+                      </td>
+                      <td>
+                        <span className={`badge badge-${r.status.toLowerCase()}`}>{r.status}</span>
+                      </td>
+                      <td>{new Date(r.submittedAt).toLocaleDateString()}</td>
+                      <td>{r.rejectionReason ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {pagination && pagination.totalPages > 1 && (
+              <div className="pagination">
+                <button onClick={() => setPage((p) => p - 1)} disabled={loading || page <= 1}>
+                  Previous
+                </button>
+                <span>
+                  Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+                </span>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={loading || page >= pagination.totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: client/src/pages/VoucherPage.tsx
+================================================================================
+import { useEffect, useState } from 'react';
+import { api, apiErrorMessage, type Voucher, type Pagination } from '../api/client';
+import { Header } from '../components/Header';
+import { useToast } from '../context/ToastContext';
+
+const TABS = ['ALL', 'AVAILABLE', 'REDEEMED', 'EXPIRED'] as const;
+type Tab = (typeof TABS)[number];
+
+const PAGE_SIZE = 5;
+
+interface VoucherStats {
+  availableVouchers: number;
+  redeemedVouchers: number;
+  expiredVouchers: number;
+  totalVouchers: number;
+}
+
+export function VoucherPage() {
+  const { showToast } = useToast();
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [page, setPage] = useState(1);
+  const [stats, setStats] = useState<VoucherStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState('');
+  const [voucherFilter, setVoucherFilter] = useState<Tab>('ALL');
+
+  async function loadStats() {
+    try {
+      const res = await api.get('/vouchers/me/stats');
+      setStats(res.data.stats);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    }
+  }
+
+  async function loadVouchers(t: Tab, p: number) {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/vouchers/me', {
+        params: { ...(t === 'ALL' ? {} : { status: t }), page: p, limit: PAGE_SIZE },
+      });
+      setVouchers(res.data.vouchers);
+      setPagination(res.data.pagination);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  // Changing tabs starts back at page 1 — the old page number rarely
+  // makes sense against a different, differently-sized filtered list.
+  useEffect(() => {
+    setPage(1);
+  }, [voucherFilter]);
+
+  useEffect(() => {
+    loadVouchers(voucherFilter, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voucherFilter, page]);
+
+  async function refreshAfterAction() {
+    await Promise.all([loadVouchers(voucherFilter, page), loadStats()]);
+  }
+
+  function voucherStatus(v: Voucher): 'ACTIVE' | 'REDEEMED' | 'EXPIRED' {
+    if (v.redeemedAt) return 'REDEEMED';
+    if (v.expiresAt && new Date(v.expiresAt) < new Date()) return 'EXPIRED';
+    return 'ACTIVE';
+  }
+
+  const voucherCounts: Record<Tab, number> = {
+    ALL: stats?.totalVouchers ?? 0,
+    AVAILABLE: stats?.availableVouchers ?? 0,
+    REDEEMED: stats?.redeemedVouchers ?? 0,
+    EXPIRED: stats?.expiredVouchers ?? 0,
+  };
+
+  async function handleRedeem(voucherId: string) {
+    setRedeemError('');
+    setRedeemingId(voucherId);
+    try {
+      const res = await api.post(`/vouchers/${voucherId}/redeem`);
+      await refreshAfterAction();
+      // The code is only ever shown once the user has actually redeemed
+      // — surface it here in the confirmation, in addition to it now
+      // being revealed in the table row, since that's the one moment
+      // the user actually needs it (e.g. to show/quote at checkout).
+      const code = res.data?.voucher?.code;
+      showToast(code ? `Voucher redeemed! Code: ${code}` : 'Voucher redeemed successfully');
+    } catch (err) {
+      setRedeemError(apiErrorMessage(err));
+    } finally {
+      setRedeemingId(null);
+    }
+  }
+
+  return (
+    <div className="page">
+      <Header />
+      <main className="container">
+        <h1>My vouchers</h1>
+
+        <section className="card">
+          <div className="tabs">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                className={t === voucherFilter ? 'tab tab-active' : 'tab'}
+                onClick={() => setVoucherFilter(t)}
+              >
+                {t.charAt(0) + t.slice(1).toLowerCase()} ({voucherCounts[t]})
+              </button>
+            ))}
+          </div>
+          <div className="table-area">
+            {error && <p className="form-error">{error}</p>}
+            {redeemError && <p className="form-error">{redeemError}</p>}
+            {loading && <p>Loading...</p>}
+            {!loading && vouchers.length === 0 && (
+              <p className="empty-state">
+                No {voucherFilter === 'ALL' ? '' : voucherFilter.toLowerCase() + ' '}vouchers
+                {voucherFilter === 'ALL' ? ' earned yet' : ''}.
+              </p>
+            )}
+            {vouchers.length > 0 && (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Amount</th>
+                    <th>No.</th>
+                    <th>Issued</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vouchers.map((v) => {
+                    const status = voucherStatus(v);
+                    return (
+                      <tr key={v.id}>
+                        <td className="voucher-code">
+                          {v.redeemedAt ? v.code : <span className="voucher-code-hidden" title="Redeem to reveal the code">Hidden</span>}
+                        </td>
+                        <td>RM {Number(v.amount).toFixed(2)}</td>
+                        <td>{v.receipt?.orderId}</td>
+                        <td>{new Date(v.issuedAt).toLocaleDateString()}</td>
+                        <td>{v.expiresAt ? new Date(v.expiresAt).toLocaleDateString() : '-'}</td>
+                        <td>
+                          <span className={`badge badge-voucher-${status.toLowerCase()}`}>{status}</span>
+                        </td>
+                        <td>
+                          {status === 'ACTIVE' && (
+                            <button onClick={() => handleRedeem(v.id)} disabled={redeemingId === v.id}>
+                              {redeemingId === v.id ? 'Redeeming...' : 'Redeem'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {pagination && pagination.totalPages > 1 && (
+              <div className="pagination">
+                <button onClick={() => setPage((p) => p - 1)} disabled={loading || page <= 1}>
+                  Previous
+                </button>
+                <span>
+                  Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+                </span>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={loading || page >= pagination.totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+
+================================================================================
+FILE: server/src/__tests__/admin.test.ts
+================================================================================
+import request from 'supertest';
+import { createApp } from '../app';
+import prisma from '../lib/prisma';
+import { resetDb, disconnectDb } from './helpers/db';
+import { createUser, loginAndGetCookie, loginAdminAndGetCookie } from './helpers/auth';
+import { testFileBuffer, testFileName } from './helpers/testFile';
+
+const app = createApp();
+
+beforeEach(async () => {
+  await resetDb();
+});
+
+afterAll(async () => {
+  await disconnectDb();
+});
+
+// Shared setup: a regular user with one PENDING receipt, and an admin
+// session to review it. Returns everything a test needs.
+async function setupPendingReceipt(amount = '100.00') {
+  await createUser({ email: 'buyer@test.com' });
+  await createUser({ email: 'admin@test.com', role: 'ADMIN' });
+
+  const userCookie = await loginAndGetCookie(app, 'buyer@test.com');
+  const adminCookie = await loginAdminAndGetCookie(app, 'admin@test.com');
+
+  const uploadRes = await request(app)
+    .post('/api/receipts')
+    .set('Cookie', userCookie)
+    .field('orderId', 'ORD-ADMIN-TEST')
+    .field('receiptNumber', '9001')
+    .field('purchaseDate', '2026-01-01')
+    .field('amount', amount)
+    .attach('file', testFileBuffer, testFileName);
+
+  return { userCookie, adminCookie, receiptId: uploadRes.body.receipt.id as string };
+}
+
+describe('GET /api/admin/stats', () => {
+  it('blocks a non-admin user', async () => {
+    await createUser({ email: 'statsuser@test.com' });
+    const userCookie = await loginAndGetCookie(app, 'statsuser@test.com');
+
+    const res = await request(app).get('/api/admin/stats').set('Cookie', userCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it('returns counts of receipts by status and total vouchers issued', async () => {
+    await createUser({ email: 'statsadmin@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'statsadmin@test.com');
+
+    // One receipt approved (-> one voucher), one rejected, one left pending.
+    const { adminCookie: setupAdminCookie, receiptId: approvedId } = await setupPendingReceipt('50.00');
+    await request(app).post(`/api/admin/receipts/${approvedId}/approve`).set('Cookie', setupAdminCookie);
+
+    await createUser({ email: 'statsbuyer2@test.com' });
+    const buyer2Cookie = await loginAndGetCookie(app, 'statsbuyer2@test.com');
+    const rejectUpload = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', buyer2Cookie)
+      .field('orderId', 'ORD-STATS-REJECT')
+      .field('receiptNumber', '9002')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '20.00')
+      .attach('file', testFileBuffer, testFileName);
+    await request(app)
+      .post(`/api/admin/receipts/${rejectUpload.body.receipt.id}/reject`)
+      .set('Cookie', setupAdminCookie);
+
+    await createUser({ email: 'statsbuyer3@test.com' });
+    const buyer3Cookie = await loginAndGetCookie(app, 'statsbuyer3@test.com');
+    await request(app)
+      .post('/api/receipts')
+      .set('Cookie', buyer3Cookie)
+      .field('orderId', 'ORD-STATS-PENDING')
+      .field('receiptNumber', '9003')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '20.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    const res = await request(app).get('/api/admin/stats').set('Cookie', adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.stats).toMatchObject({
+      pendingReceipts: 1,
+      approvedReceipts: 1,
+      rejectedReceipts: 1,
+      totalReceipts: 3,
+      vouchersIssued: 1,
+    });
+  });
+});
+
+describe('POST /api/admin/receipts/:id/approve', () => {
+  it('approves a pending receipt and generates a voucher worth 10% of the amount', async () => {
+    const { adminCookie, receiptId } = await setupPendingReceipt('100.00');
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receiptId}/approve`)
+      .set('Cookie', adminCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.receipt.status).toBe('APPROVED');
+    expect(res.body.voucher).toBeDefined();
+    expect(Number(res.body.voucher.amount)).toBeCloseTo(10.0);
+    expect(res.body.voucher.code).toMatch(/^LP-/);
+    expect(res.body.voucher.receiptId).toBe(receiptId);
+  });
+
+  it('rejects approving the same receipt twice', async () => {
+    const { adminCookie, receiptId } = await setupPendingReceipt();
+
+    const first = await request(app)
+      .post(`/api/admin/receipts/${receiptId}/approve`)
+      .set('Cookie', adminCookie);
+    expect(first.status).toBe(200);
+
+    const second = await request(app)
+      .post(`/api/admin/receipts/${receiptId}/approve`)
+      .set('Cookie', adminCookie);
+
+    expect(second.status).toBe(409);
+  });
+
+  it('only creates one voucher when two approve requests race concurrently', async () => {
+    const { adminCookie, receiptId } = await setupPendingReceipt();
+
+    // Fire both at once (not awaited sequentially) to actually exercise
+    // the race window between the early PENDING check and the
+    // conditional update committing, rather than the trivially
+    // sequential "approve twice" case above.
+    const [first, second] = await Promise.all([
+      request(app).post(`/api/admin/receipts/${receiptId}/approve`).set('Cookie', adminCookie),
+      request(app).post(`/api/admin/receipts/${receiptId}/approve`).set('Cookie', adminCookie),
+    ]);
+
+    const statuses = [first.status, second.status].sort();
+    // Exactly one wins with 200, the other loses the race with 409 —
+    // never both 200 (double voucher) and never a 500 from an
+    // unhandled P2025 on the losing request.
+    expect(statuses).toEqual([200, 409]);
+
+    const vouchers = await prisma.voucher.findMany({ where: { receiptId } });
+    expect(vouchers).toHaveLength(1);
+  });
+
+  it('blocks a non-admin user from approving receipts', async () => {
+    const { userCookie, receiptId } = await setupPendingReceipt();
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receiptId}/approve`)
+      .set('Cookie', userCookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 for a non-existent receipt id', async () => {
+    await createUser({ email: 'admin2@test.com', role: 'ADMIN' });
+    const adminCookie = await loginAdminAndGetCookie(app, 'admin2@test.com');
+
+    const res = await request(app)
+      .post('/api/admin/receipts/00000000-0000-0000-0000-000000000000/approve')
+      .set('Cookie', adminCookie);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/admin/receipts/:id/reject', () => {
+  it('rejects a pending receipt with a reason and does not create a voucher', async () => {
+    const { adminCookie, receiptId } = await setupPendingReceipt();
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receiptId}/reject`)
+      .set('Cookie', adminCookie)
+      .send({ reason: 'Blurry image' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.receipt.status).toBe('REJECTED');
+    expect(res.body.receipt.rejectionReason).toBe('Blurry image');
+  });
+
+  it('rejects rejecting an already-reviewed receipt', async () => {
+    const { adminCookie, receiptId } = await setupPendingReceipt();
+
+    await request(app).post(`/api/admin/receipts/${receiptId}/approve`).set('Cookie', adminCookie);
+
+    const res = await request(app)
+      .post(`/api/admin/receipts/${receiptId}/reject`)
+      .set('Cookie', adminCookie)
+      .send({ reason: 'Too late' });
+
+    expect(res.status).toBe(409);
+  });
+});
+
+
+================================================================================
+FILE: server/src/__tests__/auth.test.ts
+================================================================================
+import request from 'supertest';
+import { createApp } from '../app';
+import { resetDb, disconnectDb } from './helpers/db';
+import { createUser, loginAndGetCookie, TEST_PASSWORD } from './helpers/auth';
+
+const app = createApp();
+
+beforeEach(async () => {
+  await resetDb();
+});
+
+afterAll(async () => {
+  await disconnectDb();
+});
+
+describe('POST /api/auth/register', () => {
+  it('creates a new user and sets a session cookie', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Jane Doe',
+      email: 'jane@test.com',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.user).toMatchObject({ name: 'Jane Doe', email: 'jane@test.com', role: 'USER' });
+    expect(res.headers['set-cookie']).toBeDefined();
+  });
+
+  it('rejects a duplicate email with 409', async () => {
+    await createUser({ email: 'dupe@test.com' });
+
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Someone Else',
+      email: 'dupe@test.com',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('rejects a password shorter than 8 characters', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Jane Doe',
+      email: 'shortpass@test.com',
+      password: 'short',
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('creates a new user with a phone number instead of email', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Phone User',
+      phone: '60123456789',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.user).toMatchObject({ name: 'Phone User', phone: '60123456789', email: null });
+  });
+
+  it('accepts a phone number in local 0-prefixed format', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Local Phone User',
+      phone: '0123456789',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.user).toMatchObject({ name: 'Local Phone User', phone: '0123456789', email: null });
+  });
+
+  it('rejects a phone number containing letters', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Bad Phone User',
+      phone: '60abc456789',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a phone number with a leading +', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Plus Phone User',
+      phone: '+60123456789',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a phone number with spaces', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Spaced Phone User',
+      phone: '60 123 456 789',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a phone number longer than 13 digits', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'Long Phone User',
+      phone: '601234567891234',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects registration with neither email nor phone', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      name: 'No Contact',
+      password: 'Password123',
+    });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/auth/login', () => {
+  it('logs in with correct credentials', async () => {
+    await createUser({ email: 'login@test.com' });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'login@test.com', password: TEST_PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe('login@test.com');
+    expect(res.headers['set-cookie']).toBeDefined();
+  });
+
+  it('rejects an incorrect password with a generic 401 message', async () => {
+    await createUser({ email: 'wrongpass@test.com' });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'wrongpass@test.com', password: 'wrong-password' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid credentials');
+  });
+
+  it('rejects an unknown identifier with the same generic message (no user enumeration)', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'nobody@test.com', password: 'whatever123' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid credentials');
+  });
+
+  it('rejects an admin account with the same generic message as an unknown user (admins must use /admin-login)', async () => {
+    await createUser({ email: 'admin-via-user-login@test.com', role: 'ADMIN' });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'admin-via-user-login@test.com', password: TEST_PASSWORD });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid credentials');
+  });
+});
+
+describe('POST /api/auth/admin-login', () => {
+  it('logs in an admin with correct credentials', async () => {
+    await createUser({ email: 'realadmin@test.com', role: 'ADMIN' });
+
+    const res = await request(app)
+      .post('/api/auth/admin-login')
+      .send({ identifier: 'realadmin@test.com', password: TEST_PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toMatchObject({ email: 'realadmin@test.com', role: 'ADMIN' });
+    expect(res.headers['set-cookie']).toBeDefined();
+  });
+
+  it('rejects a regular user account with the same generic message as an unknown user (users must use /login)', async () => {
+    await createUser({ email: 'regular-via-admin-login@test.com', role: 'USER' });
+
+    const res = await request(app)
+      .post('/api/auth/admin-login')
+      .send({ identifier: 'regular-via-admin-login@test.com', password: TEST_PASSWORD });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid credentials');
+  });
+
+  it('rejects an unknown identifier with the same generic message', async () => {
+    const res = await request(app)
+      .post('/api/auth/admin-login')
+      .send({ identifier: 'nobody-admin@test.com', password: 'whatever123' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid credentials');
+  });
+});
+
+describe('GET /api/auth/me', () => {
+  it('rejects a request with no session cookie', async () => {
+    const res = await request(app).get('/api/auth/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns the current user when a valid session cookie is sent', async () => {
+    const user = await createUser({ email: 'me@test.com' });
+    const cookie = await loginAndGetCookie(app, 'me@test.com');
+
+    const res = await request(app).get('/api/auth/me').set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.id).toBe(user.id);
+  });
+});
+
+describe('PATCH /api/auth/me', () => {
+  it('rejects an unauthenticated request', async () => {
+    const res = await request(app).patch('/api/auth/me').send({ name: 'New Name', email: 'new@test.com' });
+    expect(res.status).toBe(401);
+  });
+
+  it('updates name, email, and phone for the logged-in user', async () => {
+    await createUser({ email: 'update@test.com' });
+    const cookie = await loginAndGetCookie(app, 'update@test.com');
+
+    const res = await request(app)
+      .patch('/api/auth/me')
+      .set('Cookie', cookie)
+      .send({ name: 'Updated Name', email: 'updated@test.com', phone: '60123456789' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user).toMatchObject({
+      name: 'Updated Name',
+      email: 'updated@test.com',
+      phone: '60123456789',
+    });
+  });
+
+  it('rejects a profile update that would leave both email and phone empty', async () => {
+    await createUser({ email: 'nocontact@test.com' });
+    const cookie = await loginAndGetCookie(app, 'nocontact@test.com');
+
+    const res = await request(app)
+      .patch('/api/auth/me')
+      .set('Cookie', cookie)
+      .send({ name: 'Still Has A Name' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects updating to an email already used by another account', async () => {
+    await createUser({ email: 'taken@test.com' });
+    await createUser({ email: 'wants-taken@test.com' });
+    const cookie = await loginAndGetCookie(app, 'wants-taken@test.com');
+
+    const res = await request(app)
+      .patch('/api/auth/me')
+      .set('Cookie', cookie)
+      .send({ name: 'Wants Taken Email', email: 'taken@test.com' });
+
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('POST /api/auth/change-password', () => {
+  it('rejects an unauthenticated request', async () => {
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'NewPassword123' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects an incorrect current password', async () => {
+    await createUser({ email: 'changepw-wrong@test.com' });
+    const cookie = await loginAndGetCookie(app, 'changepw-wrong@test.com');
+
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .set('Cookie', cookie)
+      .send({ currentPassword: 'wrong-password', newPassword: 'NewPassword123' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a new password shorter than 8 characters', async () => {
+    await createUser({ email: 'changepw-short@test.com' });
+    const cookie = await loginAndGetCookie(app, 'changepw-short@test.com');
+
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .set('Cookie', cookie)
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'short' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('changes the password, and the new password works on the next login', async () => {
+    await createUser({ email: 'changepw-ok@test.com' });
+    const cookie = await loginAndGetCookie(app, 'changepw-ok@test.com');
+
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .set('Cookie', cookie)
+      .send({ currentPassword: TEST_PASSWORD, newPassword: 'NewPassword123' });
+
+    expect(res.status).toBe(204);
+
+    const oldLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'changepw-ok@test.com', password: TEST_PASSWORD });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'changepw-ok@test.com', password: 'NewPassword123' });
+    expect(newLogin.status).toBe(200);
+  });
+});
+
+
+================================================================================
+FILE: server/src/__tests__/helpers/auth.ts
+================================================================================
+import request from 'supertest';
+import bcrypt from 'bcrypt';
+import type { Express } from 'express';
+import prisma from '../../lib/prisma';
+
+export const TEST_PASSWORD = 'Password123';
+
+// Creates a user directly via Prisma (bypassing the API) — useful for
+// seeding an ADMIN, since there's no public "become admin" endpoint by
+// design (see README: admin accounts are seed-only).
+export async function createUser(overrides: { email: string; role?: 'USER' | 'ADMIN'; name?: string }) {
+  const hashedPassword = await bcrypt.hash(TEST_PASSWORD, 10);
+  return prisma.user.create({
+    data: {
+      name: overrides.name ?? 'Test User',
+      email: overrides.email,
+      password: hashedPassword,
+      role: overrides.role ?? 'USER',
+    },
+  });
+}
+
+// Logs in via the real API (exercising the login endpoint itself) and
+// returns the Set-Cookie header value to reuse on subsequent requests.
+export async function loginAndGetCookie(app: Express, identifier: string, password = TEST_PASSWORD) {
+  const res = await request(app).post('/api/auth/login').send({ identifier, password });
+  const cookie = res.headers['set-cookie'];
+  if (!cookie) {
+    throw new Error(`Login failed in test setup: ${JSON.stringify(res.body)}`);
+  }
+  return cookie;
+}
+
+// Same as loginAndGetCookie, but for the admin-only login endpoint.
+export async function loginAdminAndGetCookie(app: Express, identifier: string, password = TEST_PASSWORD) {
+  const res = await request(app).post('/api/auth/admin-login').send({ identifier, password });
+  const cookie = res.headers['set-cookie'];
+  if (!cookie) {
+    throw new Error(`Admin login failed in test setup: ${JSON.stringify(res.body)}`);
+  }
+  return cookie;
+}
+
+
+================================================================================
+FILE: server/src/__tests__/helpers/db.ts
+================================================================================
+import prisma from '../../lib/prisma';
+
+// Wipes all app tables between tests, in FK-safe order (children
+// before parents), so each test starts from a clean, predictable
+// database state instead of depending on leftover rows from earlier
+// tests or previous runs.
+export async function resetDb() {
+  await prisma.voucher.deleteMany();
+  await prisma.receipt.deleteMany();
+  await prisma.user.deleteMany();
+}
+
+export async function disconnectDb() {
+  await prisma.$disconnect();
+}
+
+
+================================================================================
+FILE: server/src/__tests__/helpers/testFile.ts
+================================================================================
+// A minimal, valid buffer to attach as a receipt "file" upload in
+// tests. Multer's fileFilter checks the reported mimetype (which
+// Supertest derives from the filename extension), not the actual byte
+// content, so this doesn't need to be a real image.
+export const testFileBuffer = Buffer.from('fake-receipt-content');
+export const testFileName = 'receipt.jpg';
+
+
+================================================================================
+FILE: server/src/__tests__/rateLimit.test.ts
+================================================================================
+import express from 'express';
+import request from 'supertest';
+import rateLimit from 'express-rate-limit';
+
+// The real loginLimiter/registerLimiter (lib/rateLimit.ts) are skipped
+// under NODE_ENV=test so the rest of the suite isn't rate-limited by
+// its own normal traffic. This test instead builds an isolated limiter
+// with the same configuration shape but a tiny threshold, to verify the
+// underlying rate-limiting behavior itself — that requests over the
+// limit get a 429 — without touching the shared, test-skipped instance.
+describe('rate limiting', () => {
+  it('blocks requests once the limit is exceeded, and allows them again is not tested here (window not elapsed)', async () => {
+    const app = express();
+    const limiter = rateLimit({
+      windowMs: 60 * 1000,
+      limit: 3,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too many requests' },
+    });
+    app.use('/test', limiter, (_req, res) => res.json({ ok: true }));
+
+    const results = [];
+    for (let i = 0; i < 5; i++) {
+      results.push(await request(app).get('/test'));
+    }
+
+    const statuses = results.map((r) => r.status);
+    expect(statuses.slice(0, 3)).toEqual([200, 200, 200]);
+    expect(statuses.slice(3)).toEqual([429, 429]);
+    expect(results[4].body.error).toBe('Too many requests');
+  });
+});
+
+
+================================================================================
+FILE: server/src/__tests__/receipts.test.ts
+================================================================================
+import request from 'supertest';
+import { createApp } from '../app';
+import { resetDb, disconnectDb } from './helpers/db';
+import { createUser, loginAndGetCookie } from './helpers/auth';
+import { testFileBuffer, testFileName } from './helpers/testFile';
+
+const app = createApp();
+
+beforeEach(async () => {
+  await resetDb();
+});
+
+afterAll(async () => {
+  await disconnectDb();
+});
+
+describe('POST /api/receipts', () => {
+  it('rejects an unauthenticated request', async () => {
+    const res = await request(app)
+      .post('/api/receipts')
+      .field('orderId', 'ORD-1')
+      .field('receiptNumber', '1001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '50.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(401);
+  });
+
+  it('creates a PENDING receipt for a logged-in user', async () => {
+    await createUser({ email: 'uploader@test.com' });
+    const cookie = await loginAndGetCookie(app, 'uploader@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-1')
+      .field('receiptNumber', '1001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '50.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(201);
+    expect(res.body.receipt).toMatchObject({ orderId: 'ORD-1', receiptNumber: '1001', status: 'PENDING' });
+    expect(res.body.receipt.fileUrl).toMatch(/^\/uploads\//);
+  });
+
+  it('rejects an upload with no file attached', async () => {
+    await createUser({ email: 'nofile@test.com' });
+    const cookie = await loginAndGetCookie(app, 'nofile@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-2')
+      .field('receiptNumber', '1002')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '50.00');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a non-positive amount', async () => {
+    await createUser({ email: 'badamount@test.com' });
+    const cookie = await loginAndGetCookie(app, 'badamount@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-3')
+      .field('receiptNumber', '1003')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '-5')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an amount under RM 10', async () => {
+    await createUser({ email: 'underlimit@test.com' });
+    const cookie = await loginAndGetCookie(app, 'underlimit@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-UNDERLIMIT')
+      .field('receiptNumber', '1008')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '9.99')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts an amount exactly at the RM 10 limit', async () => {
+    await createUser({ email: 'atminlimit@test.com' });
+    const cookie = await loginAndGetCookie(app, 'atminlimit@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-ATMINLIMIT')
+      .field('receiptNumber', '1009')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '10.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects an amount over RM 2000', async () => {
+    await createUser({ email: 'overlimit@test.com' });
+    const cookie = await loginAndGetCookie(app, 'overlimit@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-OVERLIMIT')
+      .field('receiptNumber', '1006')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '2000.01')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts an amount exactly at the RM 2000 limit', async () => {
+    await createUser({ email: 'atlimit@test.com' });
+    const cookie = await loginAndGetCookie(app, 'atlimit@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-ATLIMIT')
+      .field('receiptNumber', '1007')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '2000.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects a purchase date in the future', async () => {
+    await createUser({ email: 'futuredate@test.com' });
+    const cookie = await loginAndGetCookie(app, 'futuredate@test.com');
+
+    const future = new Date();
+    future.setFullYear(future.getFullYear() + 1);
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-FUTURE')
+      .field('receiptNumber', '1004')
+      .field('purchaseDate', future.toISOString())
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an order ID containing a space', async () => {
+    await createUser({ email: 'spaceorder@test.com' });
+    const cookie = await loginAndGetCookie(app, 'spaceorder@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD 123')
+      .field('receiptNumber', '1005')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects the same user resubmitting the same order ID + receipt ID pair', async () => {
+    await createUser({ email: 'dupeorder@test.com' });
+    const cookie = await loginAndGetCookie(app, 'dupeorder@test.com');
+
+    const first = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-DUPE')
+      .field('receiptNumber', '2001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+    expect(first.status).toBe(201);
+
+    // Same orderId AND same receiptNumber — the actual duplicate case the
+    // composite @@unique([userId, orderId, receiptNumber]) constraint
+    // exists to catch (resubmitting the same real receipt to farm a
+    // second voucher off one purchase).
+    const second = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-DUPE')
+      .field('receiptNumber', '2001')
+      .field('purchaseDate', '2026-01-02')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(second.status).toBe(409);
+    expect(second.body.error).toMatch(/No\. and Order ID/);
+  });
+
+  it('allows the same user to reuse an order ID with a different receipt ID', async () => {
+    // Not a real-world duplicate — e.g. a corrected resubmission, or two
+    // genuinely different purchases whose orderId only coincidentally
+    // matches. The composite constraint only blocks when BOTH fields
+    // match, so this must succeed.
+    await createUser({ email: 'partialdupe-order@test.com' });
+    const cookie = await loginAndGetCookie(app, 'partialdupe-order@test.com');
+
+    const first = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-PARTIAL')
+      .field('receiptNumber', '2010')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+    expect(first.status).toBe(201);
+
+    const second = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-PARTIAL')
+      .field('receiptNumber', '2011')
+      .field('purchaseDate', '2026-01-02')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(second.status).toBe(201);
+  });
+
+  it('allows two different users to submit the same order ID', async () => {
+    await createUser({ email: 'userA@test.com' });
+    await createUser({ email: 'userB@test.com' });
+    const cookieA = await loginAndGetCookie(app, 'userA@test.com');
+    const cookieB = await loginAndGetCookie(app, 'userB@test.com');
+
+    const resA = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookieA)
+      .field('orderId', 'ORD-SHARED')
+      .field('receiptNumber', '3001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    const resB = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookieB)
+      .field('orderId', 'ORD-SHARED')
+      .field('receiptNumber', '3002')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(resA.status).toBe(201);
+    expect(resB.status).toBe(201);
+  });
+
+  it('rejects a receipt ID containing letters', async () => {
+    await createUser({ email: 'letterreceipt@test.com' });
+    const cookie = await loginAndGetCookie(app, 'letterreceipt@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-LETTERRECEIPT')
+      .field('receiptNumber', 'RC12')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a receipt ID with fewer than 4 digits', async () => {
+    await createUser({ email: 'shortreceipt@test.com' });
+    const cookie = await loginAndGetCookie(app, 'shortreceipt@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-SHORTRECEIPT')
+      .field('receiptNumber', '123')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a receipt ID with more than 4 digits', async () => {
+    await createUser({ email: 'longreceipt@test.com' });
+    const cookie = await loginAndGetCookie(app, 'longreceipt@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-LONGRECEIPT')
+      .field('receiptNumber', '12345')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a receipt ID containing a space', async () => {
+    await createUser({ email: 'spacereceipt@test.com' });
+    const cookie = await loginAndGetCookie(app, 'spacereceipt@test.com');
+
+    const res = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-SPACERECEIPT')
+      .field('receiptNumber', '12 3')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('allows the same user to reuse a receipt ID with a different order ID', async () => {
+    // This is the exact bug the composite constraint fixed: two different
+    // shops can coincidentally issue the same short receiptNumber (e.g.
+    // both "0001") to the same person — that's not a duplicate submission
+    // and must not be blocked just because receiptNumber alone matches.
+    await createUser({ email: 'dupereceipt@test.com' });
+    const cookie = await loginAndGetCookie(app, 'dupereceipt@test.com');
+
+    const first = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-DUPERECEIPT-1')
+      .field('receiptNumber', '4001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+    expect(first.status).toBe(201);
+
+    const second = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookie)
+      .field('orderId', 'ORD-DUPERECEIPT-2')
+      .field('receiptNumber', '4001')
+      .field('purchaseDate', '2026-01-02')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(second.status).toBe(201);
+  });
+
+  it('allows two different users to submit the same receipt ID', async () => {
+    await createUser({ email: 'receiptUserA@test.com' });
+    await createUser({ email: 'receiptUserB@test.com' });
+    const cookieA = await loginAndGetCookie(app, 'receiptUserA@test.com');
+    const cookieB = await loginAndGetCookie(app, 'receiptUserB@test.com');
+
+    const resA = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookieA)
+      .field('orderId', 'ORD-RECEIPT-SHARED-A')
+      .field('receiptNumber', '5001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    const resB = await request(app)
+      .post('/api/receipts')
+      .set('Cookie', cookieB)
+      .field('orderId', 'ORD-RECEIPT-SHARED-B')
+      .field('receiptNumber', '5001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '30.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    expect(resA.status).toBe(201);
+    expect(resB.status).toBe(201);
+  });
+});
+
+describe('GET /api/receipts/me', () => {
+  it('only returns the logged-in user\'s own receipts', async () => {
+    await createUser({ email: 'owner@test.com' });
+    await createUser({ email: 'other@test.com' });
+
+    const ownerCookie = await loginAndGetCookie(app, 'owner@test.com');
+    const otherCookie = await loginAndGetCookie(app, 'other@test.com');
+
+    await request(app)
+      .post('/api/receipts')
+      .set('Cookie', ownerCookie)
+      .field('orderId', 'OWNER-ORDER')
+      .field('receiptNumber', '6001')
+      .field('purchaseDate', '2026-01-01')
+      .field('amount', '20.00')
+      .attach('file', testFileBuffer, testFileName);
+
+    const res = await request(app).get('/api/receipts/me').set('Cookie', otherCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.receipts).toHaveLength(0);
+  });
+});
+
+
+================================================================================
+FILE: server/src/__tests__/vouchers.test.ts
+================================================================================
+import request from 'supertest';
+import { createApp } from '../app';
+import prisma from '../lib/prisma';
+import { resetDb, disconnectDb } from './helpers/db';
+import { createUser, loginAndGetCookie, loginAdminAndGetCookie } from './helpers/auth';
+import { testFileBuffer, testFileName } from './helpers/testFile';
+
+const app = createApp();
+
+beforeEach(async () => {
+  await resetDb();
+});
+
+afterAll(async () => {
+  await disconnectDb();
+});
+
+// Full setup: a user with an APPROVED receipt and its voucher, ready
+// to redeem.
+async function setupVoucher() {
+  await createUser({ email: 'redeemer@test.com' });
+  await createUser({ email: 'redeemadmin@test.com', role: 'ADMIN' });
+
+  const userCookie = await loginAndGetCookie(app, 'redeemer@test.com');
+  const adminCookie = await loginAdminAndGetCookie(app, 'redeemadmin@test.com');
+
+  const uploadRes = await request(app)
+    .post('/api/receipts')
+    .set('Cookie', userCookie)
+    .field('orderId', 'ORD-VOUCHER-TEST')
+    .field('receiptNumber', '9004')
+    .field('purchaseDate', '2026-01-01')
+    .field('amount', '100.00')
+    .attach('file', testFileBuffer, testFileName);
+
+  const approveRes = await request(app)
+    .post(`/api/admin/receipts/${uploadRes.body.receipt.id}/approve`)
+    .set('Cookie', adminCookie);
+
+  return { userCookie, voucherId: approveRes.body.voucher.id as string };
+}
+
+describe('POST /api/vouchers/:id/redeem', () => {
+  it('redeems an active voucher and stamps redeemedAt', async () => {
+    const { userCookie, voucherId } = await setupVoucher();
+
+    const res = await request(app).post(`/api/vouchers/${voucherId}/redeem`).set('Cookie', userCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.voucher.redeemedAt).not.toBeNull();
+  });
+
+  it('rejects redeeming the same voucher twice', async () => {
+    const { userCookie, voucherId } = await setupVoucher();
+
+    await request(app).post(`/api/vouchers/${voucherId}/redeem`).set('Cookie', userCookie);
+    const second = await request(app).post(`/api/vouchers/${voucherId}/redeem`).set('Cookie', userCookie);
+
+    expect(second.status).toBe(409);
+  });
+
+  it('rejects redeeming an expired voucher', async () => {
+    const { userCookie, voucherId } = await setupVoucher();
+
+    // Backdate expiry directly via Prisma — real expiry is 90 days out,
+    // not practical to wait for in a test.
+    await prisma.voucher.update({
+      where: { id: voucherId },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+
+    const res = await request(app).post(`/api/vouchers/${voucherId}/redeem`).set('Cookie', userCookie);
+
+    expect(res.status).toBe(410);
+  });
+
+  it("rejects redeeming another user's voucher", async () => {
+    const { voucherId } = await setupVoucher();
+    await createUser({ email: 'intruder@test.com' });
+    const intruderCookie = await loginAndGetCookie(app, 'intruder@test.com');
+
+    const res = await request(app).post(`/api/vouchers/${voucherId}/redeem`).set('Cookie', intruderCookie);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects an unauthenticated request', async () => {
+    const { voucherId } = await setupVoucher();
+
+    const res = await request(app).post(`/api/vouchers/${voucherId}/redeem`);
+
+    expect(res.status).toBe(401);
+  });
+});
+
+
+================================================================================
+FILE: server/src/app.ts
+================================================================================
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import path from 'path';
+import authRoutes from './routes/authRoutes';
+import receiptRoutes from './routes/receiptRoutes';
+import adminRoutes from './routes/adminRoutes';
+import voucherRoutes from './routes/voucherRoutes';
+import prisma from './lib/prisma';
+import { requireAuth } from './middleware/auth';
+import { asyncHandler } from './lib/asyncHandler';
+
+// Express app setup lives here, separate from index.ts's app.listen(),
+// so tests (Supertest) can import and exercise the app directly without
+// binding a real port.
+export function createApp() {
+  const app = express();
+  const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+
+  // Sets standard security headers (X-Content-Type-Options, disables
+  // X-Powered-By, etc). CSP is off — it's a browser-page protection and
+  // this is a pure JSON API with no HTML views to protect; leaving it on
+  // with default rules is a common source of confusing false restrictions
+  // on API-only backends. crossOriginResourcePolicy is relaxed to allow
+  // the client (a different origin in local dev) to load uploaded
+  // receipt files served from /uploads.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
+
+  // credentials: true + an explicit origin (not '*') is required for
+  // httpOnly cookies to be sent/received cross-origin between the
+  // React dev server and this API.
+  app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
+  app.use(express.json());
+  app.use(cookieParser());
+
+  // Uploaded receipt files are private (proof-of-purchase images can
+  // show personal info) so they're served through this authenticated
+  // route instead of a public `express.static('uploads')` mount —
+  // otherwise anyone with a receipt's URL could view it without being
+  // logged in, guessable or not. `fileUrl` on the Receipt model keeps
+  // its existing `/uploads/<filename>` shape (no DB or frontend change
+  // needed); this route just intercepts that path, checks the
+  // requester is either the receipt's owner or an admin, then streams
+  // the file from disk. The filename allowlist blocks path traversal
+  // (e.g. `..%2f..%2fetc%2fpasswd`) even though multer only ever
+  // generates `<uuid>.<ext>` names itself.
+  const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+  const SAFE_FILENAME = /^[a-zA-Z0-9-]+\.(jpg|jpeg|png|webp|pdf)$/i;
+
+  app.get(
+    '/uploads/:filename',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { filename } = req.params;
+      if (!SAFE_FILENAME.test(filename)) {
+        return res.status(400).json({ error: 'Invalid file name' });
+      }
+
+      const receipt = await prisma.receipt.findFirst({ where: { fileUrl: `/uploads/${filename}` } });
+      if (!receipt) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      const isOwner = receipt.userId === req.user!.userId;
+      const isAdmin = req.user!.role === 'ADMIN';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ error: 'Not authorized to view this file' });
+      }
+
+      return res.sendFile(path.join(UPLOAD_DIR, filename));
+    })
+  );
+
+  app.use('/api/auth', authRoutes);
+  app.use('/api/receipts', receiptRoutes);
+  app.use('/api/admin', adminRoutes);
+  app.use('/api/vouchers', voucherRoutes);
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  // Centralized error handler — keeps error shape consistent across routes.
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error(err);
+    res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  });
+
+  return app;
+}
+
+
+================================================================================
+FILE: server/src/controllers/adminController.ts
+================================================================================
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import fs from 'fs/promises';
+import path from 'path';
+import prisma from '../lib/prisma';
+import { generateVoucherCode, calculateVoucherAmount, calculateExpiryDate } from '../lib/voucher';
+
+const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+
+const listQuerySchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(5),
+});
+
+// GET /admin/stats — counts across all users, for the tab labels + tiles.
+export async function getStats(_req: Request, res: Response) {
+  const [pending, approved, rejected, vouchersIssued] = await Promise.all([
+    prisma.receipt.count({ where: { status: 'PENDING' } }),
+    prisma.receipt.count({ where: { status: 'APPROVED' } }),
+    prisma.receipt.count({ where: { status: 'REJECTED' } }),
+    prisma.voucher.count(),
+  ]);
+
+  return res.json({
+    stats: {
+      pendingReceipts: pending,
+      approvedReceipts: approved,
+      rejectedReceipts: rejected,
+      totalReceipts: pending + approved + rejected,
+      vouchersIssued,
+    },
+  });
+}
+
+export async function listReceipts(req: Request, res: Response) {
+  const parsed = listQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid query parameters' });
+  }
+
+  const { status, page, limit } = parsed.data;
+  const where = status ? { status } : undefined;
+  const skip = (page - 1) * limit;
+
+  // Fetch the page and the total count in parallel — the count is what
+  // lets the frontend render "Page 2 of 7" / disable Next on the last
+  // page, without fetching every row just to know how many there are.
+  const [receipts, total] = await Promise.all([
+    prisma.receipt.findMany({
+      where,
+      orderBy: { submittedAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true } },
+        voucher: true,
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.receipt.count({ where }),
+  ]);
+
+  return res.json({
+    receipts,
+    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  });
+}
+
+// POST /admin/receipts/:id/approve — flips to APPROVED + issues a voucher, atomically.
+export async function approveReceipt(req: Request, res: Response) {
+  const receiptId = req.params.id;
+  const adminId = req.user!.userId;
+
+  const receipt = await prisma.receipt.findUnique({ where: { id: receiptId } });
+
+  if (!receipt) {
+    return res.status(404).json({ error: 'Receipt not found' });
+  }
+
+  if (receipt.status !== 'PENDING') {
+    return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
+  }
+
+  const voucherAmount = calculateVoucherAmount(Number(receipt.amount));
+  const expiresAt = calculateExpiryDate();
+
+  // Retry a couple of times on the rare chance of a code collision
+  // (unique constraint on Voucher.code would otherwise throw).
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const updatedReceipt = await tx.receipt.update({
+          where: { id: receiptId, status: 'PENDING' }, // guards against a concurrent double-approve
+          data: { status: 'APPROVED', reviewedAt: new Date(), reviewedBy: adminId },
+        });
+
+        const voucher = await tx.voucher.create({
+          data: {
+            userId: receipt.userId,
+            receiptId: receipt.id,
+            code: generateVoucherCode(),
+            amount: voucherAmount,
+            expiresAt,
+          },
+        });
+
+        return { receipt: updatedReceipt, voucher };
+      });
+
+      return res.status(200).json(result);
+    } catch (err: any) {
+      // P2025 = the conditional `where: { id, status: 'PENDING' }`
+      // update matched no row — a concurrent request (a double-click,
+      // or two admin tabs open on the same receipt) already approved
+      // or rejected this receipt between our initial status check
+      // above and this update actually committing. Same outcome the
+      // early check would have given if it had lost that race by a
+      // few milliseconds, so re-read the receipt and respond exactly
+      // like the early check does, instead of a generic 500.
+      if (err?.code === 'P2025') {
+        const current = await prisma.receipt.findUnique({ where: { id: receiptId } });
+        return res
+          .status(409)
+          .json({ error: `Receipt has already been ${(current?.status ?? 'reviewed').toLowerCase()}` });
+      }
+
+      lastError = err;
+      // P2002 = unique constraint violation (voucher code collision, or
+      // receiptId already has a voucher from a concurrent request).
+      if (err?.code !== 'P2002') break;
+    }
+  }
+
+  console.error(lastError);
+  return res.status(500).json({ error: 'Failed to approve receipt, please try again' });
+}
+
+const rejectSchema = z.object({
+  reason: z.string().min(1).optional(),
+});
+
+// POST /admin/receipts/:id/reject — flips to REJECTED, with an optional reason.
+export async function rejectReceipt(req: Request, res: Response) {
+  const receiptId = req.params.id;
+  const adminId = req.user!.userId;
+
+  const parsed = rejectSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request body' });
+  }
+
+  const receipt = await prisma.receipt.findUnique({ where: { id: receiptId } });
+
+  if (!receipt) {
+    return res.status(404).json({ error: 'Receipt not found' });
+  }
+
+  if (receipt.status !== 'PENDING') {
+    return res.status(409).json({ error: `Receipt has already been ${receipt.status.toLowerCase()}` });
+  }
+
+  const updated = await prisma.receipt.update({
+    where: { id: receiptId },
+    data: { status: 'REJECTED', reviewedAt: new Date(), reviewedBy: adminId, rejectionReason: parsed.data.reason },
+  });
+
+  return res.json({ receipt: updated });
+}
+
+// DELETE /admin/receipts/:id — removes a receipt (+ its voucher, if any).
+export async function deleteReceipt(req: Request, res: Response) {
+  const receiptId = req.params.id;
+
+  const receipt = await prisma.receipt.findUnique({
+    where: { id: receiptId },
+    include: { voucher: true },
+  });
+
+  if (!receipt) {
+    return res.status(404).json({ error: 'Receipt not found' });
+  }
+
+  // A receipt whose voucher has already been redeemed represents a real,
+  // completed transaction — deleting it would destroy that audit trail.
+  // Deletion is meant for cleaning up a receipt (test data, a mistaken
+  // upload, a rejected/pending one), not for reversing a reward that's
+  // already been claimed. An issued-but-unredeemed voucher is still fair
+  // game — the admin action that created it is simply being undone.
+  if (receipt.voucher?.redeemedAt) {
+    return res.status(409).json({
+      error: "Cannot delete — this receipt's voucher has already been redeemed",
+    });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (receipt.voucher) {
+      await tx.voucher.delete({ where: { id: receipt.voucher.id } });
+    }
+    await tx.receipt.delete({ where: { id: receiptId } });
+  });
+
+  // Best-effort cleanup of the uploaded file on disk — a file that's
+  // already missing (or fails to delete for some other reason) shouldn't
+  // block the receipt/voucher deletion from having already succeeded.
+  const filename = receipt.fileUrl.split('/').pop();
+  if (filename) {
+    await fs.unlink(path.join(UPLOAD_DIR, filename)).catch(() => {});
+  }
+
+  return res.status(204).send();
+}
+
+
+================================================================================
+FILE: server/src/controllers/authController.ts
+================================================================================
+import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import { z } from 'zod';
+import prisma from '../lib/prisma';
+import { signToken } from '../lib/jwt';
+
+const COOKIE_NAME = process.env.COOKIE_NAME || 'loyalty_token';
+const isProduction = process.env.NODE_ENV === 'production';
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction, // requires HTTPS in production; fine over http in local dev
+  sameSite: 'lax' as const,
+  maxAge: 30 * 60 * 1000, // 30 minutes, matches JWT_EXPIRES_IN
+};
+
+// Malaysian mobile/phone numbers: digits only, no '+', no spaces, no dashes.
+// Must start with the local trunk prefix '0' or the country code '60',
+// e.g. 0123456789 or 60123456789. Length is capped so the whole string
+// (including a leading '60') never exceeds 13 digits.
+const PHONE_REGEX = /^(?:60|0)[0-9]{7,11}$/;
+const PHONE_ERROR =
+  'Phone number must contain digits only (no +, spaces, or letters), starting with 0 or 60, e.g. 0123456789 or 60123456789';
+
+// At least one of email/phone is required — not something Prisma can
+// enforce at the schema level, so it's validated here.
+const registerSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email().optional(),
+    phone: z.string().regex(PHONE_REGEX, PHONE_ERROR).optional(),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+  })
+  .refine((data) => data.email || data.phone, {
+    message: 'Either email or phone is required',
+    path: ['email'],
+  });
+
+const loginSchema = z.object({
+  identifier: z.string().min(1, 'Email or phone is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+// Same "at least one of email/phone" rule as registration — a profile
+// update can't leave the account with neither contact method.
+const updateProfileSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email().optional().or(z.literal('')),
+    phone: z.string().regex(PHONE_REGEX, PHONE_ERROR).optional().or(z.literal('')),
+  })
+  .transform((data) => ({
+    name: data.name,
+    email: data.email === '' ? undefined : data.email,
+    phone: data.phone === '' ? undefined : data.phone,
+  }))
+  .refine((data) => data.email || data.phone, {
+    message: 'Either email or phone is required',
+    path: ['email'],
+  });
+
+export async function register(req: Request, res: Response) {
+  const parsed = registerSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.errors[0].message });
+  }
+
+  const { name, email, phone, password } = parsed.data;
+
+  const existing = await prisma.user.findFirst({
+    where: {
+      OR: [email ? { email } : undefined, phone ? { phone } : undefined].filter(
+        Boolean
+      ) as any,
+    },
+  });
+
+  if (existing) {
+    return res.status(409).json({ error: 'An account with this email or phone already exists' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = await prisma.user.create({
+    data: { name, email, phone, password: hashedPassword },
+  });
+
+  const token = signToken({ userId: user.id, role: user.role });
+  res.cookie(COOKIE_NAME, token, cookieOptions);
+
+  return res.status(201).json({
+    user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role },
+  });
+}
+
+// Shared by both /auth/login and /auth/admin-login. `allowedRole`
+// scopes which accounts are even considered a match — a user account
+// hitting the admin endpoint (or vice versa) is treated exactly like a
+// wrong password: same generic message, same 401, no hint that the
+// account exists but is the wrong kind. This is a deliberate, real
+// access boundary (not just a frontend redirect) — the regular login
+// endpoint will never issue a session for an admin account, and the
+// admin login endpoint will never issue one for a regular user account.
+async function authenticateAndRespond(req: Request, res: Response, allowedRole: 'USER' | 'ADMIN') {
+  const parsed = loginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.errors[0].message });
+  }
+
+  const { identifier, password } = parsed.data;
+
+  const user = await prisma.user.findFirst({
+    where: { OR: [{ email: identifier }, { phone: identifier }] },
+  });
+
+  if (!user || user.role !== allowedRole) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  const passwordMatches = await bcrypt.compare(password, user.password);
+  if (!passwordMatches) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  const token = signToken({ userId: user.id, role: user.role });
+  res.cookie(COOKIE_NAME, token, cookieOptions);
+
+  return res.json({
+    user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role },
+  });
+}
+
+export async function login(req: Request, res: Response) {
+  return authenticateAndRespond(req, res, 'USER');
+}
+
+export async function adminLogin(req: Request, res: Response) {
+  return authenticateAndRespond(req, res, 'ADMIN');
+}
+
+export async function logout(_req: Request, res: Response) {
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: isProduction, sameSite: 'lax' });
+  return res.status(204).send();
+}
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});
+
+export async function changePassword(req: Request, res: Response) {
+  const parsed = changePasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.errors[0].message });
+  }
+
+  const { currentPassword, newPassword } = parsed.data;
+
+  const user = await prisma.user.findUnique({ where: { id: req.user!.userId } });
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const currentMatches = await bcrypt.compare(currentPassword, user.password);
+  if (!currentMatches) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword },
+  });
+
+  return res.status(204).send();
+}
+
+export async function updateProfile(req: Request, res: Response) {
+  const parsed = updateProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.errors[0].message });
+  }
+
+  const { name, email, phone } = parsed.data;
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: req.user!.userId },
+      data: { name, email: email ?? null, phone: phone ?? null },
+      select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+    });
+
+    return res.json({ user });
+  } catch (err: any) {
+    // P2002 = unique constraint violation — another account already
+    // uses this email or phone number.
+    if (err?.code === 'P2002') {
+      return res.status(409).json({ error: 'That email or phone number is already in use' });
+    }
+    throw err;
+  }
+}
+
+export async function getCurrentUser(req: Request, res: Response) {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.userId },
+    select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+  });
+
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  return res.json({ user });
+}
+
+
+================================================================================
+FILE: server/src/controllers/receiptController.ts
+================================================================================
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import fs from 'fs/promises';
+import prisma from '../lib/prisma';
+
+const createReceiptSchema = z.object({
+  // Field is still called `orderId` internally — only its displayed label
+  // changed to "No." on the frontend, so the user-facing messages here
+  // match that label.
+  orderId: z
+    .string()
+    .min(1, 'No. is required')
+    .refine((v) => !/\s/.test(v), 'No. cannot contain spaces'),
+  // A 4-digit numeric code — no letters, no spaces, no punctuation.
+  // Field is still called `receiptNumber` internally — displayed as
+  // "Order ID" on the frontend.
+  receiptNumber: z
+    .string()
+    .regex(/^\d{4}$/, 'Order ID must be a 4 digit number'),
+  purchaseDate: z
+    .string()
+    .refine((v) => !isNaN(Date.parse(v)), 'Invalid purchase date')
+    .refine((v) => new Date(v) <= new Date(), 'Purchase date cannot be in the future'),
+  amount: z
+    .string()
+    .refine((v) => !isNaN(Number(v)) && Number(v) > 0, 'Amount must be a positive number')
+    // Undocumented by the brief, same as the RM 2000 cap — a floor rather
+    // than a ceiling this time, partly to keep the voucher reward (10% of
+    // this amount) from rounding down to a trivial or zero value.
+    .refine((v) => Number(v) >= 10, 'Amount must be at least RM 10.00')
+    .refine((v) => Number(v) <= 2000, 'Amount cannot exceed RM 2000'),
+});
+
+export async function createReceipt(req: Request, res: Response) {
+  const parsed = createReceiptSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.errors[0].message });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'Receipt file is required' });
+  }
+
+  const { orderId, receiptNumber, purchaseDate, amount } = parsed.data;
+
+  try {
+    const receipt = await prisma.receipt.create({
+      data: {
+        userId: req.user!.userId,
+        orderId,
+        receiptNumber,
+        purchaseDate: new Date(purchaseDate),
+        amount,
+        fileUrl: `/uploads/${req.file.filename}`,
+      },
+    });
+
+    return res.status(201).json({ receipt });
+  } catch (err: any) {
+    // P2002 = unique constraint violation on the composite
+    // @@unique([userId, orderId, receiptNumber]) — this user already has a
+    // receipt with this EXACT order ID + receipt ID pair. Requiring both to
+    // match (rather than two separate constraints on each field) means two
+    // genuinely different receipts that happen to share just one of the two
+    // values — e.g. two different shops both printing receipt "0001" — are
+    // not wrongly rejected as duplicates. This only blocks resubmitting the
+    // same real receipt to farm multiple vouchers off one purchase.
+    if (err?.code === 'P2002') {
+      // Multer already wrote the file to disk before this failed —
+      // clean it up so a rejected upload doesn't leave an orphaned file.
+      await fs.unlink(req.file.path).catch(() => {});
+      return res.status(409).json({
+        error: 'You have already submitted a receipt with this No. and Order ID',
+      });
+    }
+    throw err;
+  }
+}
+
+const listMyReceiptsQuerySchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(5),
+});
+
+export async function listMyReceipts(req: Request, res: Response) {
+  const parsed = listMyReceiptsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid query parameters' });
+  }
+
+  const { status, page, limit } = parsed.data;
+  const where = { userId: req.user!.userId, ...(status ? { status } : {}) };
+  const skip = (page - 1) * limit;
+
+  const [receipts, total] = await Promise.all([
+    prisma.receipt.findMany({
+      where,
+      orderBy: { submittedAt: 'desc' },
+      include: { voucher: true },
+      skip,
+      take: limit,
+    }),
+    prisma.receipt.count({ where }),
+  ]);
+
+  return res.json({
+    receipts,
+    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  });
+}
+
+// Status counts for the current user's own receipts — powers the
+// ALL/PENDING/APPROVED/REJECTED tab labels on the user dashboard
+// without needing to fetch every receipt just to count them.
+export async function getMyReceiptStats(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const [pending, approved, rejected] = await Promise.all([
+    prisma.receipt.count({ where: { userId, status: 'PENDING' } }),
+    prisma.receipt.count({ where: { userId, status: 'APPROVED' } }),
+    prisma.receipt.count({ where: { userId, status: 'REJECTED' } }),
+  ]);
+
+  return res.json({
+    stats: {
+      pendingReceipts: pending,
+      approvedReceipts: approved,
+      rejectedReceipts: rejected,
+      totalReceipts: pending + approved + rejected,
+    },
+  });
+}
+
+export async function getMyReceiptById(req: Request, res: Response) {
+  const receipt = await prisma.receipt.findFirst({
+    where: { id: req.params.id, userId: req.user!.userId },
+    include: { voucher: true },
+  });
+
+  if (!receipt) {
+    return res.status(404).json({ error: 'Receipt not found' });
+  }
+
+  return res.json({ receipt });
+}
+
+
+================================================================================
+FILE: server/src/controllers/voucherController.ts
+================================================================================
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+import prisma from '../lib/prisma';
+
+// Voucher "status" (ACTIVE / REDEEMED / EXPIRED) isn't a stored column —
+// it's derived from redeemedAt/expiresAt (see voucherStatus below and
+// its mirror in the client). These helpers translate the same three
+// derived states into a Prisma `where` clause so filtering and stats
+// can be computed in the database instead of pulling every voucher over
+// the wire just to bucket them in JS.
+const VOUCHER_FILTER_STATUSES = ['AVAILABLE', 'REDEEMED', 'EXPIRED'] as const;
+type VoucherFilterStatus = (typeof VOUCHER_FILTER_STATUSES)[number];
+
+function voucherStatusWhere(status: VoucherFilterStatus, now: Date): Prisma.VoucherWhereInput {
+  switch (status) {
+    case 'REDEEMED':
+      return { redeemedAt: { not: null } };
+    case 'EXPIRED':
+      return { redeemedAt: null, expiresAt: { lt: now } };
+    case 'AVAILABLE':
+      return { redeemedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gte: now } }] };
+  }
+}
+
+const listMyVouchersQuerySchema = z.object({
+  status: z.enum(VOUCHER_FILTER_STATUSES).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(5),
+});
+
+// GET /vouchers/me — paginated list of the current user's own vouchers.
+export async function listMyVouchers(req: Request, res: Response) {
+  const parsed = listMyVouchersQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid query parameters' });
+  }
+
+  const { status, page, limit } = parsed.data;
+  const userId = req.user!.userId;
+  const where: Prisma.VoucherWhereInput = {
+    userId,
+    ...(status ? voucherStatusWhere(status, new Date()) : {}),
+  };
+  const skip = (page - 1) * limit;
+
+  const [vouchers, total] = await Promise.all([
+    prisma.voucher.findMany({
+      where,
+      orderBy: { issuedAt: 'desc' },
+      include: { receipt: { select: { orderId: true, amount: true } } },
+      skip,
+      take: limit,
+    }),
+    prisma.voucher.count({ where }),
+  ]);
+
+  return res.json({
+    vouchers,
+    pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+  });
+}
+
+// Status counts for the current user's own vouchers — powers the
+// ALL/AVAILABLE/REDEEMED/EXPIRED tab labels on the vouchers page (and
+// the "available vouchers" stat tile on the dashboard) without
+// fetching every voucher just to count them.
+export async function getMyVoucherStats(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const now = new Date();
+  const [available, redeemed, expired] = await Promise.all([
+    prisma.voucher.count({ where: { userId, ...voucherStatusWhere('AVAILABLE', now) } }),
+    prisma.voucher.count({ where: { userId, ...voucherStatusWhere('REDEEMED', now) } }),
+    prisma.voucher.count({ where: { userId, ...voucherStatusWhere('EXPIRED', now) } }),
+  ]);
+
+  return res.json({
+    stats: {
+      availableVouchers: available,
+      redeemedVouchers: redeemed,
+      expiredVouchers: expired,
+      totalVouchers: available + redeemed + expired,
+    },
+  });
+}
+
+// POST /vouchers/:id/redeem — marks a voucher redeemed once.
+export async function redeemVoucher(req: Request, res: Response) {
+  const voucher = await prisma.voucher.findFirst({
+    where: { id: req.params.id, userId: req.user!.userId },
+  });
+
+  if (!voucher) {
+    return res.status(404).json({ error: 'Voucher not found' });
+  }
+
+  if (voucher.redeemedAt) {
+    return res.status(409).json({ error: 'Voucher has already been redeemed' });
+  }
+
+  if (voucher.expiresAt && voucher.expiresAt < new Date()) {
+    return res.status(410).json({ error: 'Voucher has expired' });
+  }
+
+  const updated = await prisma.voucher.update({
+    where: { id: voucher.id },
+    data: { redeemedAt: new Date() },
+  });
+
+  return res.json({ voucher: updated });
+}
+
+
+================================================================================
+FILE: server/src/index.ts
+================================================================================
+import 'dotenv/config';
+import { createApp } from './app';
+
+const app = createApp();
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
+
+================================================================================
+FILE: server/src/lib/asyncHandler.ts
+================================================================================
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+
+/**
+ * Wraps an async Express route handler so a rejected promise is routed
+ * to next(err) instead of becoming a silent unhandled rejection.
+ *
+ * Express 4 (what this project runs) does NOT do this automatically —
+ * only Express 5 catches rejections from async handlers for you.
+ * Without this wrapper, an unexpected error thrown inside an `async`
+ * controller (e.g. a transient DB error Prisma doesn't already handle)
+ * never reaches the centralized error handler in app.ts, and the
+ * request just hangs with no response ever sent to the client.
+ */
+export function asyncHandler(
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+): RequestHandler {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+
+================================================================================
+FILE: server/src/lib/jwt.ts
+================================================================================
+import jwt from 'jsonwebtoken';
+
+export interface JwtPayload {
+  userId: string;
+  role: 'USER' | 'ADMIN';
+}
+
+const JWT_SECRET = process.env.JWT_SECRET as string;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30m';
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is not set in the environment');
+}
+
+export function signToken(payload: JwtPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+}
+
+export function verifyToken(token: string): JwtPayload {
+  return jwt.verify(token, JWT_SECRET) as JwtPayload;
+}
+
+
+================================================================================
+FILE: server/src/lib/prisma.ts
+================================================================================
+import { PrismaClient } from '@prisma/client';
+
+// Reuse a single PrismaClient instance across the app (and across
+// hot-reloads in dev) to avoid exhausting the DB connection pool.
+const prisma = new PrismaClient();
+
+export default prisma;
+
+
+================================================================================
+FILE: server/src/lib/rateLimit.ts
+================================================================================
+import rateLimit from 'express-rate-limit';
+
+// Skipped entirely during automated tests — Jest fires many login
+// requests in quick succession across the suite, which isn't a brute
+// force attempt, it's normal test traffic. Rate limiting is
+// exercised by its own dedicated unit test instead (see
+// __tests__/rateLimit.test.ts), which builds an isolated limiter
+// instance rather than relying on this shared one.
+const isTestEnv = process.env.NODE_ENV === 'test';
+
+// Caps login attempts per IP — the key defense against password
+// brute-forcing. 10 attempts per 15 minutes is generous enough for a
+// real user who mistypes their password a few times, while making
+// automated guessing impractically slow.
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => isTestEnv,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
+
+// Looser limit on registration — mainly to slow down automated mass
+// account creation, not a security-critical path the way login is.
+export const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => isTestEnv,
+  message: { error: 'Too many accounts created from this address. Please try again later.' },
+});
+
+
+================================================================================
+FILE: server/src/lib/upload.ts
+================================================================================
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
+
+const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = crypto.randomUUID();
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${uniqueSuffix}${ext}`);
+  },
+});
+
+export const receiptUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      return cb(new Error('Only JPEG, PNG, WEBP images or PDF files are allowed'));
+    }
+    cb(null, true);
+  },
+});
+
+
+================================================================================
+FILE: server/src/lib/voucher.ts
+================================================================================
+import crypto from 'crypto';
+
+// Business rule (documented assumption — brief didn't specify an exact
+// reward formula): voucher value is 10% of the approved receipt amount,
+// and vouchers expire 90 days after issuance.
+export const VOUCHER_REWARD_PERCENTAGE = 0.1;
+export const VOUCHER_VALIDITY_DAYS = 90;
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // excludes ambiguous chars (0/O, 1/I)
+
+export function generateVoucherCode(): string {
+  const bytes = crypto.randomBytes(8);
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += CODE_CHARS[bytes[i] % CODE_CHARS.length];
+  }
+  return `LP-${code}`;
+}
+
+export function calculateVoucherAmount(receiptAmount: number): number {
+  return Math.round(receiptAmount * VOUCHER_REWARD_PERCENTAGE * 100) / 100;
+}
+
+export function calculateExpiryDate(from: Date = new Date()): Date {
+  const expiry = new Date(from);
+  expiry.setDate(expiry.getDate() + VOUCHER_VALIDITY_DAYS);
+  return expiry;
+}
+
+
+================================================================================
+FILE: server/src/middleware/auth.ts
+================================================================================
+import { Request, Response, NextFunction } from 'express';
+import { verifyToken } from '../lib/jwt';
+
+const COOKIE_NAME = process.env.COOKIE_NAME || 'loyalty_token';
+
+/**
+ * Verifies the JWT stored in an httpOnly cookie and attaches the
+ * decoded payload to req.user. Rejects with 401 if missing/invalid.
+ */
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = req.cookies?.[COOKIE_NAME];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    req.user = verifyToken(token);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+}
+
+/**
+ * Must run after requireAuth. Rejects with 403 if the authenticated
+ * user is not an ADMIN. Keeps admin-only routes enforced server-side,
+ * independent of any frontend route guarding.
+ */
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
+
+================================================================================
+FILE: server/src/routes/adminRoutes.ts
+================================================================================
+import { Router } from 'express';
+import { requireAuth, requireAdmin } from '../middleware/auth';
+import { listReceipts, approveReceipt, rejectReceipt, deleteReceipt, getStats } from '../controllers/adminController';
+import { asyncHandler } from '../lib/asyncHandler';
+
+const router = Router();
+
+router.use(requireAuth, requireAdmin);
+
+router.get('/stats', asyncHandler(getStats));
+router.get('/receipts', asyncHandler(listReceipts));
+router.post('/receipts/:id/approve', asyncHandler(approveReceipt));
+router.post('/receipts/:id/reject', asyncHandler(rejectReceipt));
+router.delete('/receipts/:id', asyncHandler(deleteReceipt));
+
+export default router;
+
+
+================================================================================
+FILE: server/src/routes/authRoutes.ts
+================================================================================
+import { Router } from 'express';
+import { register, login, adminLogin, logout, getCurrentUser, updateProfile, changePassword } from '../controllers/authController';
+import { requireAuth } from '../middleware/auth';
+import { loginLimiter, registerLimiter } from '../lib/rateLimit';
+import { asyncHandler } from '../lib/asyncHandler';
+
+const router = Router();
+
+router.post('/register', registerLimiter, asyncHandler(register));
+router.post('/login', loginLimiter, asyncHandler(login));
+router.post('/admin-login', loginLimiter, asyncHandler(adminLogin));
+router.post('/logout', asyncHandler(logout));
+router.get('/me', requireAuth, asyncHandler(getCurrentUser));
+router.patch('/me', requireAuth, asyncHandler(updateProfile));
+router.post('/change-password', requireAuth, asyncHandler(changePassword));
+
+export default router;
+
+
+================================================================================
+FILE: server/src/routes/receiptRoutes.ts
+================================================================================
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth';
+import { receiptUpload } from '../lib/upload';
+import { createReceipt, listMyReceipts, getMyReceiptStats, getMyReceiptById } from '../controllers/receiptController';
+import { asyncHandler } from '../lib/asyncHandler';
+
+const router = Router();
+
+router.use(requireAuth);
+
+router.post('/', receiptUpload.single('file'), asyncHandler(createReceipt));
+router.get('/me', asyncHandler(listMyReceipts));
+router.get('/me/stats', asyncHandler(getMyReceiptStats));
+router.get('/:id', asyncHandler(getMyReceiptById));
+
+export default router;
+
+
+================================================================================
+FILE: server/src/routes/voucherRoutes.ts
+================================================================================
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth';
+import { listMyVouchers, getMyVoucherStats, redeemVoucher } from '../controllers/voucherController';
+import { asyncHandler } from '../lib/asyncHandler';
+
+const router = Router();
+
+router.use(requireAuth);
+router.get('/me', asyncHandler(listMyVouchers));
+router.get('/me/stats', asyncHandler(getMyVoucherStats));
+router.post('/:id/redeem', asyncHandler(redeemVoucher));
+
+export default router;
+
+
+================================================================================
+FILE: server/src/types/express.d.ts
+================================================================================
+import { JwtPayload } from '../lib/jwt';
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JwtPayload;
+    }
+  }
+}
+
+export {};
+
