@@ -35,12 +35,9 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * Must run after requireAuth. Rejects with 403 if the authenticated
+ * Rejects with 403 if the authenticated
  * account is an ADMIN. Receipt/voucher endpoints (submit, list own,
- * redeem) are meant for USER accounts only — an admin has no business
- * submitting their own receipts, since that's exactly the account that
- * later approves them. Blocking it here, not just hiding the nav links
- * in the UI, is what actually prevents an admin from self-approving.
+ * redeem) are meant for USER accounts only.
  */
 export function requireUser(req: Request, res: Response, next: NextFunction) {
   if (req.user?.role !== 'USER') {
