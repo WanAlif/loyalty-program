@@ -18,11 +18,7 @@ export function createApp() {
   const app = express();
   const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
-  // Sets standard security headers (X-Content-Type-Options, disables
-  // X-Powered-By, etc). CSP is off — it's a browser-page protection and
-  // this is a pure JSON API with no HTML views to protect; leaving it on
-  // with default rules is a common source of confusing false restrictions
-  // on API-only backends. crossOriginResourcePolicy is relaxed to allow
+  // crossOriginResourcePolicy is relaxed to allow
   // the client (a different origin in local dev) to load uploaded
   // receipt files served from /uploads.
   app.use(
@@ -39,17 +35,8 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser());
 
-  // Uploaded receipt files are private (proof-of-purchase images can
-  // show personal info) so they're served through this authenticated
-  // route instead of a public `express.static('uploads')` mount —
-  // otherwise anyone with a receipt's URL could view it without being
-  // logged in, guessable or not. `fileUrl` on the Receipt model keeps
-  // its existing `/uploads/<filename>` shape (no DB or frontend change
-  // needed); this route just intercepts that path, checks the
-  // requester is either the receipt's owner or an admin, then streams
-  // the file from disk. The filename allowlist blocks path traversal
-  // (e.g. `..%2f..%2fetc%2fpasswd`) even though multer only ever
-  // generates `<uuid>.<ext>` names itself.
+  // served through this authenticated route instead of a public static 
+  // otherwise anyone with the URL could view them, logged in or not.
   const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
   const SAFE_FILENAME = /^[a-zA-Z0-9-]+\.(jpg|jpeg|png|webp|pdf)$/i;
 
